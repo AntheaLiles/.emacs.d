@@ -12,7 +12,9 @@ spécification **REUSE 3.3** de la Free Software Foundation Europe.
 | **Code source Emacs Lisp** | `early-init.el`, `init.el`, `lisp/*.el`, `perf/*.el`, `snippets/**` | GNU Lesser General Public License v3.0 ou ultérieure (`LGPL-3.0-or-later`) | Copyleft faible : toute modification des fichiers eux-mêmes reste libre, mais ils peuvent être chargés depuis une configuration sous une autre licence. |
 | **Documentation** | `*.md`, `perf/README.md`, `docs/**` | GNU Free Documentation License v1.3 ou ultérieure (`GFDL-1.3-or-later`) | Licence conçue pour les manuels, cohérente avec la documentation du projet GNU Emacs. |
 | **Configuration LaTeX** | `latex/*.tex`, `latex/latexmkrc` | Creative Commons Attribution – Partage dans les mêmes conditions 4.0 International (`CC-BY-SA-4.0`) | Les préambules relèvent de la mise en page et de la typographie plus que du logiciel ; CC BY-SA impose l'attribution et le partage à l'identique. |
-| **Métadonnées et outillage** | `.gitignore`, `.gitattributes`, `.editorconfig`, `REUSE.toml`, `CITATION.cff`, `.github/**`, `.claude/settings.json` | Creative Commons Zero 1.0 (`CC0-1.0`) | Fichiers sans originalité notable : les verser au domaine public permet de les réutiliser sans formalité. |
+| **Style CSL** | `csl/iso-ieee-localised-collapsed.csl` | `CC-BY-SA-4.0` | Adaptation du style IEEE du dépôt CSL de Zotero (CC BY-SA 3.0), redistribuée sous la version 4.0 comme le permet l'article 4(b) de la licence d'origine. Auteurs du style d'origine crédités dans `REUSE.toml` et dans le fichier. |
+| **Locale CSL** | `csl/locales/**` | `CC-BY-SA-3.0` | Fichier du projet CSL, inchangé, sous sa licence d'origine. |
+| **Métadonnées et outillage** | `.gitignore`, `.gitattributes`, `.editorconfig`, `REUSE.toml`, `CITATION.cff`, `.github/**`, `.claude/settings.json`, `tests/regression/` (hors `.el`) | Creative Commons Zero 1.0 (`CC0-1.0`) | Fichiers sans originalité notable : les verser au domaine public permet de les réutiliser sans formalité. |
 
 Pour la GFDL, aucune section invariante, aucun texte de première ni de
 quatrième de couverture n'est défini.

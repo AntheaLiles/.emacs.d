@@ -10,6 +10,27 @@
 ;; Numéros de ligne : relatifs en prog-mode, absolus en modes texte.
 
 ;;; Code:
+;;;; THÈME — modus-vivendi (intégré à Emacs, contraste WCAG AAA)
+;; Remplace doom-themes.  Les réglages doivent précéder `load-theme'.
+(defvar modus-themes-italic-constructs)
+(defvar modus-themes-bold-constructs)
+(defvar modus-themes-mixed-fonts)
+(defvar modus-themes-to-toggle)
+(declare-function modus-themes-toggle "modus-themes" ())
+(setq modus-themes-italic-constructs t
+      modus-themes-bold-constructs nil
+      modus-themes-mixed-fonts t          ; blocs Org et tables en chasse fixe
+      modus-themes-to-toggle '(modus-vivendi modus-operandi))
+(mapc #'disable-theme custom-enabled-themes)
+(load-theme 'modus-vivendi t)
+;; Basculer clair / sombre
+(keymap-global-set "<f5>" #'modus-themes-toggle)
+
+;;;; MODE LINE — native (Emacs 31), remplace mood-line
+;; Modes mineurs repliés en un seul bouton, nom du projet affiché.
+(setopt mode-line-collapse-minor-modes t
+        project-mode-line t)
+
 ;;;; CURSOR
 (setopt cursor-type 'bar)
 

@@ -8,8 +8,11 @@ notamment :
 
 - l'**amorçage d'Elpaca** (`init.el`), qui clone et compile du code depuis
   GitHub, puis les paquets déclarés via `use-package` ;
-- la **compilation LaTeX avec `-shell-escape`** (`lisp/my-export-config.el`),
-  qui permet à un document `.org`/`.tex` d'exécuter des commandes système ;
+- la **compilation LaTeX** (`lisp/my-export-config.el`), lancée **sans**
+  `-shell-escape` : un document ne peut pas exécuter de commande système par
+  ce biais (à réactiver par document seulement, en connaissance de cause) ;
+- la **conversion des `.drawio`** à l'export, qui appelle l'exécutable
+  `drawio` sur les fichiers liés par le document ;
 - l'**exécution de blocs Org Babel** et l'export asynchrone ;
 - les **processus externes** (serveurs de langage, hunspell, ripgrep,
   latexmk) et les connexions **TRAMP** ;
@@ -48,8 +51,8 @@ réception est visé sous 14 jours, sans garantie de délai de correction.
 ## Bonnes pratiques pour qui réutilise cette configuration
 
 - Lire `init.el` avant le premier lancement : il télécharge et exécute du code.
-- N'exporter en PDF que des documents Org/LaTeX de confiance, à cause de
-  `-shell-escape`.
+- N'exporter en PDF que des documents Org de confiance : Babel et la
+  conversion drawio s'exécutent à l'export.
 - Garder `org-confirm-babel-evaluate` actif pour les fichiers d'origine
   inconnue. Attention : `lisp/my-export-config.el` désactive cette
   confirmation **pendant l'export** ; exporter un fichier non vérifié exécute

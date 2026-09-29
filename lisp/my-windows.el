@@ -36,25 +36,9 @@
           pixel-scroll-precision-interpolation-factor 4.0)
   (pixel-scroll-precision-mode 1))
 
-;;;; MWHEEL COALESCING
-;; Les advices séparent les événements coalesced ('mwheel-scroll')
-;; des non-coalesced ('pixel-scroll-precision').
-;; Peut nécessiter une révision si Emacs 31 change l'API mwheel.
-(defun my/filter-mwheel-always-coalesce (orig &rest args)
-  "Ensure only coalesced scroll events reach ORIG."
-  (if mwheel-coalesce-scroll-events
-      (apply orig args)
-    (setq mwheel-coalesce-scroll-events t)))
-
-(defun my/filter-mwheel-never-coalesce (orig &rest args)
-  "Ensure only non-coalesced scroll events reach ORIG."
-  (if mwheel-coalesce-scroll-events
-      (setq mwheel-coalesce-scroll-events nil)
-    (apply orig args)))
-
-(advice-add 'pixel-scroll-precision :around #'my/filter-mwheel-never-coalesce)
-(advice-add 'mwheel-scroll          :around #'my/filter-mwheel-always-coalesce)
-(advice-add 'mouse-wheel-text-scale :around #'my/filter-mwheel-always-coalesce)
+;; (Les conseils qui basculaient `mwheel-coalesce-scroll-events' à chaque
+;; événement de molette sont retirés : pixel-scroll-precision-mode gère seul
+;; les événements précis et laisse les autres à mwheel.)
 
 (provide 'my-windows)
 ;;; my-windows.el ends here

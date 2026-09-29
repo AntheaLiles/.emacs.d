@@ -6,96 +6,75 @@
 ;; This file is not part of GNU Emacs.
 
 ;;; Commentary:
-;; Affiche le log d'export dans une fenêtre à droite,
-;; puis remplace par le PDF quand la compilation réussit.
+;; Affiche le journal d'un export PDF/UA asynchrone dans une fenêtre à
+;; droite, puis le remplace par le PDF quand la compilation réussit.
 ;;
-;; Guards :
-;;   - N'active le split que si la fenêtre est assez large (>120 colonnes)
-;;   - N'active le split que pour les exports asynchrones
-;;   - En export synchrone ou fenêtre étroite : comportement Org standard
+;; Aucun minuteur : Org appelle `org-export-add-to-stack' à chaque étape
+;; d'un export asynchrone, et c'est là qu'on se branche.
+;;   - lancement : SOURCE est le buffer du processus, PROCESS est vivant ;
+;;   - succès    : SOURCE est le chemin du fichier produit (le PDF) ;
+;;   - échec     : SOURCE est le buffer du processus, PROCESS est terminé.
+;;
+;; Garde-fous : la fenêtre n'est ouverte que pour un export asynchrone et
+;; une fenêtre assez large (> 120 colonnes) ; sinon comportement Org
+;; standard (pile d'export, C-c C-e &).
 
 ;;; Code:
 
 (defvar my/export-pdf-file nil
-  "Path of the PDF being exported.")
+  "Path of the PDF being exported asynchronously, or nil.")
 
 (defvar my/export-window nil
-  "Window used for export log then PDF display.")
+  "Window used for the export log, then the PDF.")
 
-(defvar my/export-watch-timer nil
-  "Timer watching the export process for completion.")
-
-(defun my/org-export-pdf-open (orig-fun &rest args)
-  "Advice to show log in right window then switch to PDF.
-Only activates for async exports with sufficient window width."
-  (let* ((org-file (buffer-file-name))
-         (pdf-file (and org-file
-                        (concat (file-name-sans-extension org-file) ".pdf"))))
-    (setq my/export-pdf-file pdf-file)
-    ;; Buffer sans fichier : pas de PDF à suivre, comportement Org standard.
-    (if (and pdf-file
-             org-export-in-background
-             (> (window-total-width) 120))
+(defun my/export-ui-start (orig-fun &optional async subtreep &rest args)
+  "Around advice for `my/pdfua-export-to-pdf': prepare the side window.
+ORIG-FUN is called with ASYNC, SUBTREEP and ARGS unchanged."
+  (let ((pdf (and buffer-file-name
+                  (concat (file-name-sans-extension
+                           (org-export-output-file-name ".tex" subtreep))
+                          ".pdf"))))
+    (if (and async pdf (> (window-total-width) 120))
         (progn
-          (setq my/export-window (split-window-right))
-          (apply orig-fun args)
-          (run-with-timer 1 nil #'my/show-export-log-right)
-          ;; Un export relancé avant la fin du précédent ne doit pas
-          ;; laisser tourner l'ancien minuteur indéfiniment.
-          (when (timerp my/export-watch-timer)
-            (cancel-timer my/export-watch-timer))
-          (setq my/export-watch-timer
-                (run-with-timer 2 2 #'my/watch-export-process)))
-      (apply orig-fun args))))
+          (setq my/export-pdf-file (expand-file-name pdf)
+                my/export-window (split-window-right))
+          (apply orig-fun async subtreep args))
+      (apply orig-fun async subtreep args))))
 
-(defun my/show-export-log-right ()
-  "Display export log in the right window."
-  (let ((buf (get-buffer "*Org Export Process*")))
-    (when (and buf (window-live-p my/export-window))
-      (set-window-buffer my/export-window buf)
-      (with-current-buffer buf
-        (goto-char (point-max))
-        (set-window-point my/export-window (point-max))))))
+(defun my/export-ui--show (window buffer-or-file)
+  "Show BUFFER-OR-FILE in WINDOW, scrolled to its end if it is a buffer."
+  (when (window-live-p window)
+    (if (bufferp buffer-or-file)
+        (progn
+          (set-window-buffer window buffer-or-file)
+          (with-current-buffer buffer-or-file
+            (set-window-point window (point-max))))
+      (with-selected-window window
+        (find-file buffer-or-file)))))
 
-(defun my/watch-export-process ()
-  "Watch for export completion, then replace log with PDF."
-  (let ((proc-buf (get-buffer "*Org Export Process*")))
+(defun my/export-ui-on-stack (source _backend &optional process)
+  "After advice for `org-export-add-to-stack', following one export.
+SOURCE and PROCESS tell the stage of the export (see Commentary)."
+  (when my/export-pdf-file
     (cond
-     ;; Processus terminé
-     ((or (null proc-buf)
-          (and proc-buf (not (get-buffer-process proc-buf))))
-      ;; Annuler le timer proprement
-      (when (timerp my/export-watch-timer)
-        (cancel-timer my/export-watch-timer)
-        (setq my/export-watch-timer nil))
-      (cond
-       ;; Succès — PDF existe et récent (moins de 60s)
-       ((and my/export-pdf-file
-             (file-exists-p my/export-pdf-file)
-             (< (float-time
-                 (time-subtract nil
-                                (file-attribute-modification-time
-                                 (file-attributes my/export-pdf-file))))
-                60))
-        (when (window-live-p my/export-window)
-          (select-window my/export-window)
-          (condition-case nil
-              (find-file my/export-pdf-file)
-            (error nil)))
-        (message "Export complete: %s"
-                 (file-name-nondirectory my/export-pdf-file)))
-       ;; Échec — garder le log visible
-       (t (message "Export failed. See *Org Export Process*"))))
-     ;; Processus en cours — scroll le log
-     (proc-buf
-      (when (window-live-p my/export-window)
-        (with-current-buffer proc-buf
-          (goto-char (point-max))
-          (set-window-point my/export-window (point-max))))))))
+     ;; Lancement : afficher le journal du processus
+     ((and (bufferp source) (processp process) (process-live-p process))
+      (my/export-ui--show my/export-window source))
+     ;; Succès : remplacer le journal par le PDF
+     ((and (stringp source)
+           (string= (expand-file-name source) my/export-pdf-file))
+      (my/export-ui--show my/export-window source)
+      (message "Export terminé : %s" (file-name-nondirectory source))
+      (setq my/export-pdf-file nil))
+     ;; Échec : garder le journal visible
+     ((and (bufferp source) (processp process))
+      (my/export-ui--show my/export-window source)
+      (message "Échec de l'export : voir %s" (buffer-name source))
+      (setq my/export-pdf-file nil)))))
 
-;; Activer l'advice
-(with-eval-after-load 'ox-latex
-  (advice-add 'org-latex-export-to-pdf :around #'my/org-export-pdf-open))
+(advice-add 'my/pdfua-export-to-pdf :around #'my/export-ui-start)
+(with-eval-after-load 'ox
+  (advice-add 'org-export-add-to-stack :after #'my/export-ui-on-stack))
 
 (provide 'my-export-ui)
 ;;; my-export-ui.el ends here

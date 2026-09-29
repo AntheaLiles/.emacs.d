@@ -5,7 +5,7 @@
 
 EMACS ?= emacs
 
-.PHONY: check reuse lint test
+.PHONY: check reuse lint test regress
 
 check: reuse lint test
 
@@ -22,3 +22,9 @@ test:
 	  -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L lisp -l tests/my-export-config-test.el \
 	  -f ert-run-tests-batch-and-exit
+	$(EMACS) -Q --batch -L lisp -l tests/my-config-test.el \
+	  -f ert-run-tests-batch-and-exit
+
+# Banc de bout en bout : export Org → LuaLaTeX → PDF (requiert TeX Live)
+regress:
+	tests/regression/run.sh

@@ -6,61 +6,70 @@
 ;; This file is not part of GNU Emacs.
 
 ;;; Commentary:
-;; Configuration de la compilation native.
-;; Désactivation de l'UI avant le premier rendu.
+;; Télémétrie (sur demande), ramasse-miettes, modules maison (user-lisp),
+;; compilation native, désactivation de l'UI avant le premier rendu.
 
 ;;; Code:
 
-;; Profilage
-(load (expand-file-name "perf/perf-start.el" user-emacs-directory))
+;;;; TÉLÉMÉTRIE — sur demande
+;; Le collecteur (perf/perf-start.el) fait tourner le profileur natif en
+;; permanence : il ne se charge que pour une campagne de mesure, activée par
+;; le fichier perf/enabled (non versionné) ou la variable d'environnement
+;; EMACS_PERF.  Démarrer une campagne : touch ~/.emacs.d/perf/enabled
+(defvar my/perf-enabled
+  (or (getenv "EMACS_PERF")
+      (file-exists-p (expand-file-name "perf/enabled" user-emacs-directory)))
+  "Non-nil when the long-running performance collector is loaded.")
+(when my/perf-enabled
+  (load (expand-file-name "perf/perf-start.el" user-emacs-directory)))
 
-;; Garbage Collector — désactivé pendant le boot
+;;;; RAMASSE-MIETTES
+;; Désactivé pendant le démarrage, puis seuil fixe et collecte pendant
+;; l'inactivité (ce que faisait gcmh, en quelques lignes).
 (setq gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6)
 
-;; …et rétabli après le boot.  gcmh (init.el) ne gère que le seuil : sans
-;; ceci, `gc-cons-percentage' resterait à 0.6 toute la session (un GC
-;; seulement après une allocation de 60 % du tas, d'où de longues pauses),
-;; et le seuil resterait infini si gcmh ne se chargeait pas (premier
-;; lancement, échec d'Elpaca).  gcmh, une fois actif, reprend la main.
+(defconst my/gc-cons-threshold (* 64 1024 1024)
+  "Allocation threshold between two garbage collections after startup.")
+
 (add-hook 'emacs-startup-hook
           (lambda ()
-            (setq gc-cons-percentage 0.1)
-            (unless (bound-and-true-p gcmh-mode)
-              (setq gc-cons-threshold (* 16 1024 1024)))))
+            (setq gc-cons-threshold my/gc-cons-threshold
+                  gc-cons-percentage 0.1)
+            ;; Collecter pendant les pauses plutôt qu'en pleine frappe.
+            (run-with-idle-timer 10 t #'garbage-collect)))
 
-;; file-name-handler-alist — vidé pendant le boot
+;;;; FILE-NAME-HANDLER-ALIST — vidé pendant le démarrage
 (defvar my/file-name-handler-alist-backup file-name-handler-alist
   "Sauvegarde de `file-name-handler-alist' pour restauration post-boot.")
 (setq file-name-handler-alist nil)
-
-;; inhibit-redisplay — pas de rendu pendant le boot
-(setq inhibit-redisplay t)
 
 (add-hook 'emacs-startup-hook
           (lambda ()
             (setq file-name-handler-alist
                   (delete-dups
                    (append my/file-name-handler-alist-backup
-                           file-name-handler-alist)))
-            (setq inhibit-redisplay nil)
-            ;; Forcer un redraw complet maintenant que tout est chargé
-            (redraw-frame)))
+                           file-name-handler-alist)))))
 
-;; Compilation native (Emacs 30.2)
-(when (featurep 'native-compile)
-  (setq native-comp-jit-compilation t)
-  ;; (0 = désactivé, 1 = basique, 2 = complet, 3 = agressif/risqué)
-  (setq native-comp-speed 2)
-  (setq native-comp-async-report-warnings-errors 'silent)
-  (when (fboundp 'startup-redirect-eln-cache)
-    (startup-redirect-eln-cache
-     (expand-file-name "eln-cache/" user-emacs-directory))))
+;;;; MODULES MAISON (Emacs 31 : user-lisp)
+;; lisp/ est traité comme un répertoire de paquets locaux : ajouté au
+;; load-path, compilé, et ses cookies ;;;###autoload chargés avant init.el
+;; (remplace compile-angel ; Elpaca compile déjà ses paquets et la
+;; compilation native JIT les convertit).
+(setopt user-lisp-directory (expand-file-name "lisp/" user-emacs-directory)
+        user-lisp-auto-scrape t)
+
+;;;; COMPILATION NATIVE
+;; Vitesse, compilation JIT et répertoire eln-cache/ : valeurs par défaut.
+(setq native-comp-async-report-warnings-errors 'silent)
 
 ;; Désactiver package.el (on utilise Elpaca)
 (setq package-enable-at-startup nil)
 
-;; Désactivation de l'UI AVANT le premier frame
+;;;; UI — désactivée AVANT le premier frame
+;; (Plus d'`inhibit-redisplay' : une question posée pendant l'init, par Elpaca
+;; ou pour une grammaire tree-sitter, restait invisible et Emacs semblait
+;; figé ; l'interface est déjà masquée par `default-frame-alist'.)
 (push '(menu-bar-lines . 0) default-frame-alist)
 (push '(tool-bar-lines . 0) default-frame-alist)
 (push '(vertical-scroll-bars) default-frame-alist)
@@ -78,12 +87,6 @@
 
 ;; Ne pas compiler le fichier site-default.el au démarrage
 (setq site-run-file nil)
-
-;;;; USER-LISP (Emacs 31) — désactivé
-;; La compilation et le load-path de lisp/ sont gérés par compile-angel,
-;; qui couvre en outre les paquets elpaca et fait de la native-compilation.
-;; user-lisp-auto-scrape ferait double emploi sans apporter de couverture.
-(setopt user-lisp-auto-scrape nil)
 
 ;; Startup silencieux
 (setq inhibit-startup-screen t

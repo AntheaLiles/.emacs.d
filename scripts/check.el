@@ -15,7 +15,7 @@
 ;; (paquets absents en CI, fonctions d'Emacs 31…) sont affichés mais
 ;; tolérés.  init.el et early-init.el ne sont pas compilés : ils
 ;; dépendent d'Elpaca et ne sont jamais compilés en usage réel
-;; (exclus de compile-angel).
+;; (user-lisp ne compile que lisp/).
 ;;
 ;; Usage, depuis la racine du dépôt :
 ;;   emacs -Q --batch -l scripts/check.el

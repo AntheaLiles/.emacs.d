@@ -31,9 +31,12 @@
 (require 'org)
 (require 'ox-latex)
 
+;;;; BABEL — mêmes langages que la session interactive
+(require 'my-babel)
+
 ;;;; CONFIGURATION D'EXPORT PARTAGÉE
-;; Inclut le filtre des titres :ignore:, les autres filtres de pré-analyse
-;; et le choix du rendu des blocs source (engraved, ou verbatim en repli).
+;; Backend pdfua et ses classes, filtres de pré-analyse, citations CSL,
+;; rendu des blocs source (engraved, ou verbatim en repli).
 (require 'my-export-config)
 
 ;;;; ORG-GLOSSARY (optionnel — ne crash pas si absent)

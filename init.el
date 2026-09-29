@@ -64,7 +64,10 @@
 ;;;; CUSTOM FILE
 (setq custom-file (expand-file-name "custom.el" user-emacs-directory))
 
-;;;; MODULES COMPILABLES
+;;;; MODULES MAISON
+;; lisp/ est le répertoire `user-lisp-directory' (early-init.el) : Emacs 31
+;; l'ajoute au load-path, le compile et en charge les autoloads au démarrage.
+;; La ligne suivante ne sert qu'à un Emacs antérieur.
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 (require 'my-paths)
 (require 'my-performance)
@@ -75,34 +78,8 @@
 (require 'my-formatting)
 (require 'my-export-ui)
 
-;;;; COMPILATION AOT
-(use-package compile-angel
-  :ensure t
-  :demand t
-  :config
-  (setq compile-angel-verbose nil)
-  (push "/init.el" compile-angel-excluded-files)
-  (push "/early-init.el" compile-angel-excluded-files)
-  (push "/custom.el" compile-angel-excluded-files)
-  (push "/lisp/my-export-async.el" compile-angel-excluded-files)
-  (compile-angel-on-load-mode 1))
-
-;;;; GARBAGE COLLECTOR
-(use-package gcmh
-  :ensure t
-  :demand t
-  :custom
-  (gcmh-idle-delay 'auto)
-  (gcmh-auto-idle-delay-factor 10)
-  (gcmh-high-cons-threshold (* 128 1024 1024))
-  :config
-  (gcmh-mode 1))
-
 ;;;; AIDES DE REDACTION
-(use-package move-text
-  :ensure t
-  :bind (("M-<up>"   . move-text-up)
-         ("M-<down>" . move-text-down)))
+;; Déplacement de lignes : M-<up> / M-<down> (lisp/my-editing.el).
 
 (use-package multiple-cursors
   :ensure t
@@ -110,23 +87,11 @@
          ("C-S-<mouse-1>" . mc/add-cursor-on-click)))
 
 ;;;; THÈME ET MODELINE
-(use-package doom-themes
-  :ensure t
-  :demand t
-  :config
-  (mapc #'disable-theme custom-enabled-themes)
-  (load-theme 'doom-tomorrow-night t)
-  (doom-themes-visual-bell-config)
-  (doom-themes-org-config))
+;; Thème : modus-vivendi, intégré à Emacs (contraste WCAG AAA) ; réglages dans
+;; lisp/my-appearance.el.  Mode line native (Emacs 31), idem.
 
 (use-package nerd-icons
   :ensure t)
-
-(use-package mood-line
-  :ensure t
-  :hook (elpaca-after-init . mood-line-mode)
-  :custom
-  (mood-line-glyph-alist mood-line-glyphs-unicode))
 
 ;;;; REPLIEMENT DE CODE
 ;; Entièrement géré par lisp/my-folding.el (outline + hideshow, TAB à la Org),
@@ -149,7 +114,8 @@
   :ensure nil
   :hook (elpaca-after-init . savehist-mode)
   :custom
-  (savehist-additional-variables '(search-ring regexp-search-ring kill-ring)))
+  ;; Sans kill-ring : un mot de passe copié finissait dans ~/.emacs.d/history.
+  (savehist-additional-variables '(search-ring regexp-search-ring)))
 
 (use-package recentf
   :ensure nil
@@ -157,6 +123,7 @@
   :custom
   (recentf-max-saved-items 200)
   (recentf-max-menu-items 15)
+  (recentf-autosave-interval 300)        ; Emacs 31 : rien de perdu au plantage
   (recentf-exclude '("^/tmp/" "^/ssh:" "^/sudo:"
                      "\\.git/" "COMMIT_EDITMSG"
                      "\\.\\(?:gz\\|gif\\|svg\\|png\\|jpe?g\\)$"
@@ -257,23 +224,32 @@
       (setq-local corfu-auto nil)
       (corfu-mode 1))))
 
+;; Complétion par les mots du buffer : `dabbrev-capf', natif (Emacs 29),
+;; remplace cape-dabbrev.  cape ne sert plus qu'aux fichiers et aux blocs
+;; Emacs Lisp d'Org.
+(use-package dabbrev
+  :ensure nil
+  :init
+  (add-hook 'completion-at-point-functions #'dabbrev-capf))
+
 (use-package cape
   :ensure t
   :init
-  (add-hook 'completion-at-point-functions #'cape-dabbrev)
   (add-hook 'completion-at-point-functions #'cape-file)
   :hook (org-mode . my/cape-org-setup)
-  :custom
-  (cape-dabbrev-min-length 3)
   :config
   (defun my/cape-org-setup ()
     "Add cape-elisp-block completion in Org buffers."
     (add-hook 'completion-at-point-functions #'cape-elisp-block nil t)))
 
 ;;;; DÉVELOPPEMENT
+;; Eglot démarre seulement pour les langages dont le serveur est déclaré
+;; (ci-dessous, ou par lean4-mode), jamais dans un buffer sans fichier ni
+;; dans un buffer d'édition de bloc Org (C-c ').
 (use-package eglot
   :ensure nil
-  :hook (prog-mode . my/eglot-ensure-maybe)
+  :hook ((lean4-mode bash-ts-mode yaml-ts-mode typescript-ts-mode perl-ts-mode)
+         . my/eglot-ensure-maybe)
   :bind (:map eglot-mode-map
               ("C-c l r" . eglot-rename)
               ("C-c l a" . eglot-code-actions)
@@ -290,21 +266,32 @@
      :documentOnTypeFormattingProvider
      :colorProvider
      :foldingRangeProvider))
-  :config
+  :init
   (defun my/eglot-ensure-maybe ()
-    "Enable eglot unless in a mode without LSP support."
-    (unless (derived-mode-p 'emacs-lisp-mode 'lisp-mode 'ebnf-mode)
+    "Start Eglot in a file-visiting buffer, outside Org source edit buffers."
+    (when (and buffer-file-name
+               (not (bound-and-true-p org-src-mode)))
       (eglot-ensure)))
+  :config
   (add-to-list 'eglot-server-programs
-               '(web-mode . ("typescript-language-server" "--stdio")))
+               '(typescript-ts-mode . ("typescript-language-server" "--stdio")))
   (add-to-list 'eglot-server-programs
                '(yaml-ts-mode . ("yaml-language-server" "--stdio")))
   (add-to-list 'eglot-server-programs
                '((bash-ts-mode) . ("bash-language-server" "start")))
   (add-to-list 'eglot-server-programs
-               '(perl-ts-mode . ("perlnavigator" "--stdio")))
-  (add-to-list 'eglot-server-programs
-               '(lean-ts-mode . ("lean" "--server"))))
+               '(perl-ts-mode . ("perlnavigator" "--stdio"))))
+
+;; Lean 4 : variante Eglot de lean4-mode (le paquet officiel impose
+;; lsp-mode).  Elle déclare elle-même son serveur : « lake serve » à la
+;; racine du projet Lake (Mathlib compris), avec détection du projet.
+(use-package lean4-mode
+  :ensure (:host github :repo "bustercopley/lean4-mode" :files ("*.el" "data"))
+  :mode "\\.lean\\'")
+
+;; lean4-mode dépend de markdown-mode, dont les autoloads réclament les
+;; fichiers .md : on garde le mode natif tree-sitter (Emacs 31).
+(add-to-list 'major-mode-remap-alist '(markdown-mode . markdown-ts-mode))
 
 (use-package eglot-booster
   :ensure (:host github :repo "jdtsmith/eglot-booster")
@@ -334,7 +321,14 @@
   :ensure t
   :hook ((elpaca-after-init  . global-diff-hl-mode)
          (magit-pre-refresh  . diff-hl-magit-pre-refresh)
-         (magit-post-refresh . diff-hl-magit-post-refresh)))
+         (magit-post-refresh . diff-hl-magit-post-refresh))
+  :custom
+  (diff-hl-update-async t))               ; git hors du fil principal
+
+;; Emacs 31 : resynchroniser les buffers après une opération VC.
+(use-package vc
+  :ensure nil
+  :hook (elpaca-after-init . vc-auto-revert-mode))
 
 (use-package project
   :ensure nil
@@ -384,7 +378,8 @@
 (use-package emacs ; configuration Org-Mode
   :ensure nil
   :hook ((org-mode          . prettify-symbols-mode)
-         (org-mode          . visual-line-mode)))
+         (org-mode          . visual-line-mode)
+         (org-mode          . visual-wrap-prefix-mode))) ; retour indenté (30)
 (use-package ob-mermaid
   :ensure t)                        ; PAS de :after org (course au load-path)
 
@@ -404,7 +399,7 @@
   (org-src-fontify-natively t)
   (org-src-tab-acts-natively t)
   (org-src-preserve-indentation t)
-  (org-edit-src-content-indentation 0)
+  (org-src-content-indentation 0)         ; ex-org-edit-src-… (Org 9.8)
   (org-cite-insert-processor 'citar)
   (org-cite-follow-processor 'citar)
   (org-cite-activate-processor 'citar)
@@ -415,13 +410,11 @@
   (org-image-actual-width '(640))
   (org-adapt-indentation nil)
   (org-cycle-separator-lines 1)
-  (org-startup-with-inline-images t)
+  (org-startup-with-link-previews t)      ; ex-…-inline-images (Org 9.8)
+  ;; Citations : bibliographie CSL-JSON ; style, processeur et locales dans
+  ;; lisp/my-export-config.el (partagé avec l'export asynchrone).
   (org-cite-global-bibliography my/bibliography-files)
-  (org-cite-export-processors '((latex biblatex)
-                                (t     csl)))
   (org-cite-csl-styles-dir  my/zotero-styles-dir)
-  (org-cite-csl-locales-dir my/csl-locales-dir)
-  (org-cite-csl-bibtex-titles-to-sentence-case t)
 
   ;; --- Prévisualisation LaTeX : API mainline ---
   (org-startup-with-latex-preview nil)     ; t = preview auto à l'ouverture
@@ -431,21 +424,16 @@
      :html-foreground "Black" :html-background "Transparent"
      :html-scale 1.0 :matchers ("begin" "$1" "$" "$$" "\\(" "\\[")))
   :config
-  (dolist (pair '(("lean"       . lean-ts)
+  (dolist (pair '(("lean"       . lean4)
                   ("ebnf"       . ebnf)
                   ("typescript" . typescript-ts)
                   ("ocaml"      . neocaml)))
     (add-to-list 'org-src-lang-modes pair))
 
-  (with-eval-after-load 'ob-core
-    (dolist (lang '(calc mermaid))
-      (when (locate-library (format "ob-%s" lang))
-        (add-to-list 'org-babel-load-languages (cons lang t))))
-    (org-babel-do-load-languages 'org-babel-load-languages
-                                 org-babel-load-languages))
-  ;; Configuration d'export partagée avec le processus asynchrone :
-  ;; pipeline LuaLaTeX, rendu des blocs, filtres (dont les titres :ignore:).
-  ;; ox charge ox-latex (`org-export-backends'), donc tout export en profite.
+  ;; Langages Babel : lisp/my-babel.el, partagé avec l'export asynchrone.
+  (require 'my-babel)
+  ;; Export PDF/UA (backend pdfua, C-c C-e u) et configuration partagée avec
+  ;; le processus asynchrone.  ox charge ox-latex (`org-export-backends').
   (with-eval-after-load 'ox-latex
     (require 'my-export-config)))
 
@@ -545,7 +533,8 @@
 (use-package emacs ; configuration LaTeX
   :ensure nil
   :hook ((LaTeX-mode        . prettify-symbols-mode)
-         (LaTeX-mode        . visual-line-mode)))
+         (LaTeX-mode        . visual-line-mode)
+         (LaTeX-mode        . visual-wrap-prefix-mode)))
 
 (use-package tex
   :ensure (auctex
@@ -601,7 +590,7 @@
   :after tex
   :custom
   (reftex-plug-into-AUCTeX '(nil nil t t t)) ; cite:nil, ref/label/index:t
-  (reftex-default-bibliography my/bibliography-files)
+  (reftex-default-bibliography my/bibtex-files) ; .bib synchronisée par Zotero
   (reftex-label-alist '(AMSTeX))
   (reftex-toc-split-windows-fraction 0.3)
   (reftex-enable-partial-scans t)
@@ -702,10 +691,6 @@ If in a project, copy the path relative to the project root."
   (dired-create-destination-dirs 'always)
   (delete-by-moving-to-trash t))
 
-(use-package diredfl
-  :ensure t
-  :hook (dired-mode . diredfl-mode))
-
 (use-package dired-subtree
   :ensure (:host github :repo "Fuco1/dired-hacks" :files ("dired-subtree.el"))
   :after dired
@@ -744,9 +729,8 @@ If in a project, copy the path relative to the project root."
                      (float-time (time-subtract after-init-time
                                                 before-init-time))
                      (length (elpaca--queued)))
-            ;; 3. Vérification des dépendances (async avec cache BLAKE3)
-            ;(require 'my-deps)
-            ;(my/schedule-dep-check)
+            ;; 3. Dépendances système : à la demande, M-x my/deps-check
+            ;;    (autochargé depuis lisp/my-deps.el).
             ))
 
 (provide 'init)

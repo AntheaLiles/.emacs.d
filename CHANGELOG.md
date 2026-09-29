@@ -12,6 +12,40 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Backend d'export `pdfua`** (dérivé de `latex`, menu `C-c C-e u`) : `.tex`,
+  PDF, PDF ouvert et **PDF brouillon** sans balisage (`C-c C-e u d`).
+  L'export LaTeX standard (`C-c C-e l`) n'est plus modifié par la
+  configuration.
+- **Classes `article-ua` et `book-ua`** : préambule commun
+  `latex/preamble-common.tex`, plus un préambule par classe ; `book-ua`
+  compose en recto verso et ouvre chaque section sur une page impaire,
+  `article-ua` non.
+- **Bibliographie CSL** : style personnel
+  `csl/iso-ieee-localised-collapsed.csl` (CC BY-SA 4.0) et locale française
+  (`csl/locales/`, CC BY-SA 3.0) ; une bibliographie par section de premier
+  niveau, restreinte aux références qui y sont citées ; repli sur le
+  processeur `basic` si `citeproc` manque.
+- `lisp/my-babel.el` : langages Babel (Emacs Lisp, Python, R, shell, calc,
+  Lua, Mermaid si installé), partagés par la session et l'export asynchrone.
+- **Lean 4** : `lean4-mode` (fork Eglot, `lake serve`), blocs `lean` dans Org.
+- Déplacement de lignes natif `M-<up>` / `M-<down>` (`my/move-lines-up`,
+  `my/move-lines-down`), région comprise.
+- Nouveautés d'Emacs 31 : `user-lisp-directory` (compilation et autoloads de
+  `lisp/`), indicateurs de repliement en frange, mode line native
+  (`mode-line-collapse-minor-modes`, `project-mode-line`),
+  `vc-auto-revert-mode`, `diff-hl-update-async`, `dabbrev-capf`,
+  `visual-wrap-prefix-mode`, `flyspell-delay-use-timer`,
+  `ispell-save-corrections-as-abbrevs`, `markdown-ts-mode` par
+  `major-mode-remap-alist`.
+- `tests/my-config-test.el` : tests ERT des modules (déplacement de lignes,
+  repliement, Babel, dépendances, garde d'Eglot, `early-init.el`).
+- `tests/regression/` et `make regress` : banc de bout en bout (export réel
+  en processus asynchrone, compilation LuaLaTeX en `article-ua`, `book-ua`
+  et brouillon), exécuté par la CI sous Emacs 31.1.
+- Tests ERT de l'export étendus : classes, backend, brouillon, CSL,
+  bibliographies par section, drawio, remarques, éléments de flottant,
+  titres `:ignore:`, affichage du journal et du PDF.
+
 - **Code en ligne à l'export PDF** : `~code~` et `src_LANG{…}` sont composés
   en monospace sur fond grisé (macro `\CodeInline`, paquet `lua-ul`, sécable
   en fin de ligne), les seconds colorés selon leur langage par engrave-faces ;
@@ -27,11 +61,48 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Modifié
 
+- **Rupture** — l'export PDF/UA passe par `C-c C-e u` et la classe par défaut
+  s'appelle `article-ua` : `#+LATEX_CLASS: article` redevient la classe
+  standard de LaTeX.
+- **Rupture** — `latex/preamble-article.tex` devient
+  `latex/preamble-common.tex`.
+- **Rupture** — la bibliographie d'Org est `~/wiki/00.resources/references.json`
+  (CSL-JSON, export *Better CSL JSON* de Zotero) ; `references.bib` reste
+  utilisée par AUCTeX et RefTeX (`my/bibtex-files`). biber et biblatex ne
+  sont plus employés : deux passes LuaLaTeX au lieu de quatre.
+- **Rupture** — `TAB` n'agit plus sur les blocs de code : il replie les
+  titres (outline natif) et **indente** partout ailleurs ; les blocs se
+  replient par `C-c z b` ou la frange.
+- **Rupture** — paquets retirés au profit du natif : `compile-angel`
+  (`user-lisp`), `gcmh` (seuil fixe et GC à l'inactivité), `move-text`,
+  `doom-themes` (`modus-themes`, `<f5>`), `mood-line` (mode line native),
+  `diredfl` ; `cape-dabbrev` remplacé par `dabbrev-capf`.
+- **Rupture** — la télémétrie `perf/` est désactivée par défaut : l'activer
+  par `touch ~/.emacs.d/perf/enabled` ou `EMACS_PERF=1`.
+- Eglot ne démarre plus dans tous les modes de programmation mais pour Lean,
+  Bash, YAML, TypeScript et Perl, et jamais dans un buffer d'édition de bloc
+  Org ni sans fichier.
+- `latex/latexmkrc` : les lignes changeantes de `run.xml` sont ignorées dans
+  le calcul d'empreinte (une passe LuaLaTeX inutile en moins).
+- `lua-ul` n'est chargé que si le document contient du code en ligne.
+- `org-latex-pdf-process` sans `-shell-escape` ni `-f`.
+- Affichage de l'export (`my-export-ui.el`) : piloté par
+  `org-export-add-to-stack`, sans minuteur.
+- `my-deps.el` réécrit : synchrone, à la demande (`M-x my/deps-check`), sans
+  cache BLAKE3 ni processus d'arrière-plan ; vérifie aussi les paquets LaTeX
+  et les polices du préambule.
+- Auto-sauvegarde des fichiers visités toutes les 30 s (hors TRAMP et
+  `/mnt/`), sauvegardes de `recentf` et `save-place` toutes les 5 min ; le
+  `kill-ring` n'est plus enregistré par `savehist`.
+- Renommages d'Org 9.8 : `org-src-content-indentation`,
+  `org-startup-with-link-previews`.
+- `my-folding.el` réécrit sur les mécanismes natifs d'Emacs 31 (variables
+  `hs-*` locales, `hs-special-modes-alist` étant obsolète).
 - Les blocs `src_LANG{…}` exportent désormais leur **code** au lieu d'être
   évalués (`:exports code` par défaut) : la confirmation Babel étant coupée
   pendant l'export, du code en ligne s'exécutait sans demander. Pour un
   résultat, écrire `src_LANG[:exports results]{…}`.
-- `latex/preamble-article.tex` : l'icône ORCID est cherchée via `\emacsdir`,
+- `latex/preamble-common.tex` : l'icône ORCID est cherchée via `\emacsdir`,
   fourni par la classe d'export à partir de `user-emacs-directory` (repli sur
   `~/.emacs.d/`).
 - `magit` n'est plus chargé au démarrage (`:demand t` retiré).
@@ -40,6 +111,14 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **Largeur des images** : `#+ATTR_LATEX: :options width=…` produisait deux
+  clés `width=` dans `\includegraphics` ; seule la première est gardée.
+- **Emphase finale** : une remarque `[rmq:…]` ou un élément `#+NOTE:`
+  terminé par `*gras*` ou `/italique/` perdait sa mise en forme.
+- **Espace avant espace insécable** : les espaces qui précèdent une espace
+  insécable (style CSL) sont fusionnées.
+- Obsolescences d'Emacs 31 et d'Org rétablies comme avertissements
+  (`byte-compile-warnings` n'est plus restreint).
 - **Télémétrie** (`perf/perf-start.el`) : une parenthèse mal placée imbriquait
   `my/perf--post-gc`, `my/perf--snapshot-allocation` et
   `my/perf--snapshot-system` dans `my/perf--post-command`.

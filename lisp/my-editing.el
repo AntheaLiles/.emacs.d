@@ -35,10 +35,65 @@
 (delete-selection-mode 1)
 (electric-pair-mode 1)
 (save-place-mode 1)
+;; Copier du code sans son indentation commune (Emacs 30)
+(when (fboundp 'kill-ring-deindent-mode) (kill-ring-deindent-mode 1))
+;; Appliquer les .editorconfig des projets (intégré depuis Emacs 30)
+(when (fboundp 'editorconfig-mode) (editorconfig-mode 1))
+
+;;;; DÉPLACER DES LIGNES — M-<up> / M-<down>
+;; Remplace le paquet move-text : la ligne courante, ou les lignes couvertes
+;; par la région, montent ou descendent d'un cran ; la région est conservée.
+
+(defun my/move-lines (n)
+  "Move the current line, or the lines spanned by the region, N lines down.
+A negative N moves them up."
+  (let* ((region (use-region-p))
+         (beg (save-excursion
+                (goto-char (if region (region-beginning) (point)))
+                (line-beginning-position)))
+         (end (save-excursion
+                (goto-char (if region (region-end) (point)))
+                ;; Une région qui finit en début de ligne n'inclut pas celle-ci
+                (when (and region (bolp) (> (point) beg)) (backward-char))
+                (line-beginning-position 2)))
+         (col (current-column))
+         (point-offset (- (point) beg))
+         (mark-offset (and region (- (mark) beg))))
+    (when (save-excursion
+            (goto-char (if (< n 0) beg end))
+            (zerop (forward-line n)))
+      (let* ((text (delete-and-extract-region beg end))
+             (_ (forward-line n))
+             (new-beg (point)))
+        ;; Dernière ligne sans saut de ligne final
+        (unless (string-suffix-p "\n" text)
+          (setq text (concat text "\n"))
+          (when (eobp) (insert "\n") (backward-char)))
+        (insert text)
+        (goto-char (+ new-beg point-offset))
+        (if region
+            (progn (set-mark (+ new-beg mark-offset))
+                   (setq deactivate-mark nil))
+          (move-to-column col))))))
+
+(defun my/move-lines-up (n)
+  "Move the current line or region N lines up."
+  (interactive "p")
+  (my/move-lines (- n)))
+
+(defun my/move-lines-down (n)
+  "Move the current line or region N lines down."
+  (interactive "p")
+  (my/move-lines n))
+
+(keymap-global-set "M-<up>"   #'my/move-lines-up)
+(keymap-global-set "M-<down>" #'my/move-lines-down)
 
 ;;;; SAVE-PLACE
 (setopt save-place-ignore-files-regexp
-        "\\(?:COMMIT_EDITMSG\\|hg-hierarchet\\|svn-commit\\|bzr_log\\|/ssh:\\|/sudo:\\)")
+        "\\(?:COMMIT_EDITMSG\\|hg-hierarchet\\|svn-commit\\|bzr_log\\|/ssh:\\|/sudo:\\)"
+        ;; Emacs 31 : enregistrer régulièrement, rien de perdu au plantage
+        save-place-autosave-interval 300)
 
 (add-hook 'save-place-after-find-file-hook
           (lambda ()
@@ -49,7 +104,17 @@
 (add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
 
 ;;;; AUTO-SAVE
-(setopt auto-save-visited-interval 2)
+;; Toutes les 30 s (et non 2) : chaque sauvegarde relance after-save-hook
+;; (howm, Flymake, Eglot, diff-hl).  Jamais pour les fichiers distants
+;; (Tramp) ni sur les disques Windows de WSL (/mnt/…, lents à écrire).
+(defun my/auto-save-visited-p ()
+  "Non-nil if the current buffer's file may be saved automatically."
+  (and buffer-file-name
+       (not (file-remote-p buffer-file-name))
+       (not (string-prefix-p "/mnt/" (file-truename buffer-file-name)))))
+
+(setopt auto-save-visited-interval 30
+        auto-save-visited-predicate #'my/auto-save-visited-p)
 (auto-save-visited-mode 1)
 
 ;;;; LOCKFILES
@@ -73,15 +138,6 @@
     (make-directory auto-save-dir t))
   (setopt auto-save-file-name-transforms
           `((".*" ,auto-save-dir t))))
-
-;;;; KILL-RING — nettoyer les text properties avant persistance
-;; Évite que savehist gonfle avec les propriétés de face/overlay
-;; des buffers Org et du .bib de 14 Mo.
-(defun my/savehist-strip-text-properties ()
-  "Strip text properties from `kill-ring' before saving to disk."
-  (setq kill-ring
-        (mapcar #'substring-no-properties kill-ring)))
-(add-hook 'savehist-save-hook #'my/savehist-strip-text-properties)
 
 ;;;; FLYSPELL
 ;; Backend : hunspell (multi-dictionnaire, meilleur support UTF-8 que aspell)
@@ -120,7 +176,10 @@
                nil utf-8))
             ;; Dictionnaire personnel versionné avec la config
             ispell-personal-dictionary
-            (expand-file-name "ispell-personal" user-emacs-directory))))
+            (expand-file-name "ispell-personal" user-emacs-directory)))
+  ;; Emacs 31 : une correction choisie devient une abréviation globale
+  ;; (C-u avant le choix inverse ce réglage au cas par cas).
+  (setopt ispell-save-corrections-as-abbrevs t))
 
 ;; Flyspell en mode texte.  Org, markdown-ts-mode et LaTeX-mode (AUCTeX)
 ;; dérivent tous de `text-mode' : un seul hook les couvre.
@@ -136,7 +195,10 @@
 ;; Messages de flyspell
 (with-eval-after-load 'flyspell
   (setopt flyspell-issue-message-flag nil    ; pas de message par mot vérifié
-          flyspell-issue-welcome-flag nil)   ; pas de message au démarrage
+          flyspell-issue-welcome-flag nil    ; pas de message au démarrage
+          ;; Emacs 31 : vérifier par minuteur plutôt que par sit-for, sans
+          ;; bloquer les autres minuteurs (futur comportement par défaut)
+          flyspell-delay-use-timer t)
   ;; Libérer C-. et C-; pour Embark, déplacer l'auto-correction sur C-M-;
   (keymap-unset flyspell-mode-map "C-." t)
   (keymap-unset flyspell-mode-map "C-;" t)

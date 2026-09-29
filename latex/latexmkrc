@@ -6,3 +6,9 @@
 # Réservé pour de futures optimisations latexmk
 $lualatex = 'lualatex -file-line-error -interaction=nonstopmode -synctex=1 %O %S';
 $pdf_mode = 4; # 4 = lualatex
+
+# biblatex (documents LaTeX purs ; la chaîne Org utilise CSL) : son fichier
+# .run.xml change d'une passe à l'autre par ses seuls indicateurs d'état
+# (active="1" → "0"), ce qui déclenchait une passe lualatex inutile.  Ses
+# vraies demandes de relance passent par le .log, que latexmk lit aussi.
+$hash_calc_ignore_pattern{'xml'} = '^\s*<(?:internal|external) package="biblatex"';

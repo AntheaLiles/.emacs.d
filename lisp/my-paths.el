@@ -19,8 +19,13 @@
 (defvar my/resources-path (expand-file-name "00.resources" my/wiki-path)
   "Répertoire des ressources partagées du wiki (bibliographie, CSL, notes).")
 
-(defvar my/bibliography-files (list (expand-file-name "references.bib" my/resources-path))
-  "Fichiers bibliographiques pour Org-cite et Citar.")
+(defvar my/bibliography-files (list (expand-file-name "references.json" my/resources-path))
+  "Bibliographies CSL-JSON (export Better CSL JSON de Zotero) : Org-cite et Citar.
+Le CSL-JSON porte l'identifiant de chaque entrée, dont dépendent les
+bibliographies par section de l'export PDF/UA.")
+
+(defvar my/bibtex-files (list (expand-file-name "references.bib" my/resources-path))
+  "Bibliographies BibTeX, gardées synchronisées pour AUCTeX et RefTeX.")
 
 (defvar my/zotero-storage '("/mnt/c/Users/CPIERRE/Documents/My Library/storage")
   "Répertoire de stockage Zotero pour les PDF des références.")

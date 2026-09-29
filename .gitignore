@@ -22,6 +22,8 @@
 /eln-cache/
 *-autoloads.el
 *-pkg.el
+# Autoloads générés par Emacs 31 pour user-lisp (lisp/, voir early-init.el)
+/lisp/.user-lisp-autoloads.el
 !/lisp/*-pkg.el
 
 # ---------------------------------------------------------------------------
@@ -85,6 +87,8 @@
 /perf/*.tsv
 /perf/cpu/
 /perf/*.elprof
+# Interrupteur local de campagne de mesure (voir early-init.el)
+/perf/enabled
 
 # ---------------------------------------------------------------------------
 # LaTeX / AUCTeX : fichiers intermédiaires et sorties

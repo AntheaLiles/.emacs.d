@@ -6,33 +6,52 @@
 ;; This file is not part of GNU Emacs.
 
 ;;; Commentary:
-;; Source unique de vérité pour l'export Org → PDF.
-;; Chargé par init.el (via with-eval-after-load 'ox-latex)
-;; et par my-export-async.el (directement).
+;; Source unique de vérité pour l'export Org → PDF/UA-2 (LuaLaTeX).
+;; Chargé par init.el (via with-eval-after-load 'ox-latex) et par
+;; my-export-async.el (directement).
+;;
+;; Définit le backend `pdfua', dérivé de `latex' (menu C-c C-e u), et ses
+;; deux classes :
+;;   article-ua  recto seul, sections enchaînées (classe par défaut) ;
+;;   book-ua     recto verso, chaque section sur une page impaire.
+;; Les filtres propres à la chaîne (remarques en marge, éléments de
+;; flottant, code en ligne, bibliographies par section) ne s'appliquent
+;; qu'à ce backend.  Citations : processeur CSL, style versionné dans csl/.
 ;;
 ;; Prérequis :
 ;;   - org, ox-latex chargés
-;;   - Variable `my/bibliography-files' définie via my-paths.el
+;;   - variables de my-paths.el (bibliographies, répertoires CSL)
 
 ;;; Code:
 
-;;;; FICHIERS LATEX DU DÉPÔT
+(require 'cl-lib)
+(require 'ox-latex)
+(require 'oc)
+(require 'my-paths)
+
+;;;; FICHIERS DU DÉPÔT
 ;; Dérivés de `user-emacs-directory' : aucun chemin ~/.emacs.d en dur.
 (defconst my/latex-dir (expand-file-name "latex/" user-emacs-directory)
-  "Directory holding the LaTeX preamble and latexmk configuration.")
-
-(defconst my/latex-preamble-file
-  (expand-file-name "preamble-article.tex" my/latex-dir)
-  "LaTeX preamble inserted by the \"article\" export class.")
+  "Directory holding the LaTeX preambles and latexmk configuration.")
 
 (defconst my/latexmkrc-file (expand-file-name "latexmkrc" my/latex-dir)
   "Configuration file passed to latexmk with -r.")
 
+(defconst my/csl-dir (expand-file-name "csl/" user-emacs-directory)
+  "Directory holding the versioned CSL style and fallback locales.")
+
+(defconst my/csl-style-file
+  (expand-file-name "iso-ieee-localised-collapsed.csl" my/csl-dir)
+  "CSL style used for citations and bibliographies.")
+
 ;;;; PIPELINE LUALATEX
+;; Ni -shell-escape (aucun paquet du préambule ne l'exige ; il permettrait à
+;; un document d'exécuter des commandes), ni -f (un PDF produit malgré des
+;; erreurs passerait pour un succès).
 (setopt org-latex-compiler "lualatex"
         org-latex-pdf-process
-        (list (concat "latexmk -lualatex -shell-escape -interaction=nonstopmode"
-                      " -f -output-directory=%o -r "
+        (list (concat "latexmk -lualatex -interaction=nonstopmode"
+                      " -output-directory=%o -r "
                       (shell-quote-argument my/latexmkrc-file)
                       " %f"))
         org-latex-prefer-user-labels t)
@@ -61,7 +80,8 @@
 ;; ligne.  Le contenu d'engrave-faces a déjà tous ses caractères spéciaux
 ;; échappés : c'est du LaTeX ordinaire, que l'on peut passer en argument à
 ;; \CodeInline sans les contraintes du verbatim.  Seules les espaces sont
-;; rendues explicites (\ ), pour ne pas être fusionnées.
+;; rendues explicites (\ ), pour ne pas être fusionnées.  Filtre installé
+;; par le backend `pdfua' (voir plus bas).
 
 (defconst my/org-latex-inline-code-regexp
   (concat "\\`\\(?:\\\\texttt\\|\\\\Verb\\(?:\\[[^]]*\\]\\)?\\)"
@@ -69,37 +89,18 @@
   "Match ox-latex output for inline code: \\texttt{…} or \\Verb[…]{…}.
 Group 1 is the code, group 2 the trailing blanks added by the exporter.")
 
-(defun my/org-export--latex-backend-p (backend)
-  "Non-nil if BACKEND, a backend structure or name, derives from `latex'.
-Unlike `org-export-derived-backend-p', follow parents given as backend
-structures, not only as names: since Org 9.7, section titles are exported
-through `org-latex--section-no-footnote-backend', an anonymous backend
-whose parent is itself an anonymous structure."
-  (let ((b backend) found)
-    (while (and b (not found))
-      (when (symbolp b) (setq b (org-export-get-backend b)))
-      (when b
-        (if (eq (org-export-backend-name b) 'latex)
-            (setq found t)
-          (setq b (org-export-backend-parent b)))))
-    found))
-
-(defun my/org-latex-inline-code (text _backend info)
-  "Rewrap inline code TEXT in \\CodeInline for LaTeX exports.
-Used as a filter on `code' and `inline-src-block' objects.  The backend
-is read from INFO: in titles, the name passed as second argument is nil."
-  (if (and (my/org-export--latex-backend-p (plist-get info :back-end))
-           (string-match my/org-latex-inline-code-regexp text))
+(defun my/org-latex-inline-code (text _backend _info)
+  "Rewrap inline code TEXT in \\CodeInline.
+Installed on `code' and `inline-src-block' objects by the `pdfua'
+backend, titles included (they are exported through an anonymous
+backend that inherits the same filters)."
+  (if (string-match my/org-latex-inline-code-regexp text)
       (let ((code (match-string 1 text))
             (blanks (match-string 2 text)))
         (concat "\\CodeInline{"
                 (replace-regexp-in-string " " "\\ " code t t)
                 "}" blanks))
     text))
-
-(add-to-list 'org-export-filter-code-functions #'my/org-latex-inline-code)
-(add-to-list 'org-export-filter-inline-src-block-functions
-             #'my/org-latex-inline-code)
 
 ;; Un bloc en ligne est, par défaut, ÉVALUÉ à l'export et remplacé par son
 ;; résultat (:exports results).  Or la confirmation Babel est coupée pendant
@@ -122,25 +123,50 @@ is read from INFO: in titles, the name passed as second argument is nil."
         org-export-headline-levels 5)
 
 ;;;; CLASSES LATEX
-(add-to-list 'org-latex-classes
-             `("article"
-               ,(concat "\\DocumentMetadata{lang=fr,pdfversion=2.0,pdfstandard=ua-2,
-                                   testphase=phase-III}
-                \\documentclass[a4paper,11pt]{article}
-                \\newcommand{\\emacsdir}{" user-emacs-directory "}
-                \\input{" my/latex-preamble-file "}
-               [NO-DEFAULT-PACKAGES]
-               [PACKAGES]
-               [EXTRA]")
-               ("\\section{%s}" . "\\section*{%s}")
-               ("\\subsection{%s}" . "\\subsection*{%s}")
-               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
-               ("\\paragraph{%s}" . "\\paragraph*{%s}")
-               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+;; La classe `article' d'Org n'est plus écrasée : les deux classes PDF/UA
+;; portent leur propre nom.  \emacsdir sert au préambule pour trouver ses
+;; fichiers compagnons (preamble-common.tex, icône ORCID).
+(defun my/pdfua-class-header (variant)
+  "Return the LaTeX class header of the VARIANT preamble (\"article\" or \"book\")."
+  (concat "\\DocumentMetadata{lang=fr,pdfversion=2.0,pdfstandard=ua-2,
+                   testphase=phase-III}
+\\documentclass[a4paper,11pt]{article}
+\\newcommand{\\emacsdir}{" user-emacs-directory "}
+\\input{" (expand-file-name (format "preamble-%s-ua.tex" variant) my/latex-dir) "}
+[NO-DEFAULT-PACKAGES]
+[PACKAGES]
+[EXTRA]"))
 
-;;;; CITATIONS
+(dolist (variant '("article" "book"))
+  (setf (alist-get (concat variant "-ua") org-latex-classes nil nil #'equal)
+        (list (my/pdfua-class-header variant)
+              '("\\section{%s}" . "\\section*{%s}")
+              '("\\subsection{%s}" . "\\subsection*{%s}")
+              '("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+              '("\\paragraph{%s}" . "\\paragraph*{%s}")
+              '("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+
+;;;; CITATIONS (CSL)
+;; Bibliographie Org en CSL-JSON (export Better CSL JSON de Zotero) ; la .bib
+;; reste synchronisée pour AUCTeX et RefTeX.  Locales : le répertoire de
+;; my-paths.el s'il existe, sinon la locale française versionnée dans csl/.
+;; Sans citeproc (export lancé avant son installation par Elpaca), le
+;; processeur csl ferait échouer TOUT export, même sans citation : repli sur
+;; le processeur basic d'Org, avec un avertissement.
+(defconst my/csl-available-p (and (locate-library "citeproc") t)
+  "Non-nil when citeproc-el, required by the CSL processor, is installed.")
+
+(unless my/csl-available-p
+  (message "ATTENTION : citeproc absent — citations exportées par le processeur basic"))
+
 (setopt org-cite-global-bibliography my/bibliography-files
-        org-cite-export-processors '((latex biblatex) (t csl)))
+        org-cite-export-processors (if my/csl-available-p
+                                       `((t csl ,my/csl-style-file))
+                                     '((t basic)))
+        org-cite-csl-locales-dir
+        (if (file-directory-p my/csl-locales-dir)
+            my/csl-locales-dir
+          (expand-file-name "locales/" my/csl-dir)))
 
 ;;;; BABEL
 ;; Par défaut, demander confirmation avant d'exécuter un bloc babel.
@@ -187,6 +213,13 @@ backwards, so that earlier deletions never shift later positions."
 ;; Deux d'entre eux doivent épargner le contenu des blocs (#+BEGIN_SRC,
 ;; #+BEGIN_EXPORT, #+BEGIN_EXAMPLE…), où le texte est littéral et ne doit
 ;; jamais être transformé.
+
+(defun my/org--espace-apres-emphase (char)
+  "Return \" \" if CHAR closes an Org emphasis, else the empty string.
+Org only closes an emphasis before a space or a punctuation mark, not
+before the @@ of an export snippet: \"*gras*@@latex:}@@\" would stay
+literal.  A space is harmless at the end of a LaTeX macro argument."
+  (if (and char (memq char '(?* ?/ ?_ ?= ?~ ?+))) " " ""))
 
 (defun my/org-regions-de-bloc ()
   "Rend la liste des régions (DÉBUT . FIN) couvertes par un bloc Org.
@@ -244,9 +277,9 @@ rien.  Rend nil si le crochet n'est jamais refermé."
 ;; déplacent pas les positions restant à traiter.
 
 (defun my/org-remarques-en-marge (backend)
-  "Convertit les [rmq:texte] en remarques marginales pour les exports LaTeX.
+  "Convertit les [rmq:texte] en remarques marginales pour l'export PDF/UA.
 BACKEND est le backend d'export."
-  (when (org-export-derived-backend-p backend 'latex)
+  (when (org-export-derived-backend-p backend 'pdfua)
     (let ((regions (my/org-regions-de-bloc))
           (occurrences '())
           (case-fold-search t))
@@ -267,7 +300,8 @@ BACKEND est le backend d'export."
           (save-excursion
             (goto-char (1- fermeture))       ; le ] fermant
             (delete-char 1)
-            (insert "@@latex:}@@")
+            (insert (my/org--espace-apres-emphase (char-before))
+                    "@@latex:}@@")
             (goto-char ouverture)
             (delete-region ouverture contenu)
             (insert "@@latex:\\RMQ{@@")))))))
@@ -338,7 +372,7 @@ BACKEND est le backend d'export."
 (defun my/org-items-flottants (backend)
   "Replie les items de flottant là où Org les attend.
 BACKEND est le backend d'export."
-  (when (org-export-derived-backend-p backend 'latex)
+  (when (org-export-derived-backend-p backend 'pdfua)
     (save-excursion
       (goto-char (point-min))
       (let ((case-fold-search t))
@@ -379,8 +413,10 @@ BACKEND est le backend d'export."
                          (lambda (paire)
                            (let ((v (cdr (assoc (car paire) items))))
                              (if (and v (not (string-empty-p v)))
-                                 (format "@@latex:\\%s{@@%s@@latex:}@@"
-                                         (cdr paire) v)
+                                 (format "@@latex:\\%s{@@%s%s@@latex:}@@"
+                                         (cdr paire) v
+                                         (my/org--espace-apres-emphase
+                                          (aref v (1- (length v)))))
                                "")))
                          my/org-items-flottants-macros ""))
                        (neuve (and caption
@@ -472,6 +508,172 @@ BACKEND est le backend d'export."
           (insert "[[" prefix pdf-link "]]"))))))
 
 (add-hook 'org-export-before-parsing-functions #'my/org-convert-drawio)
+
+;;;; BIBLIOGRAPHIES PAR SECTION (CSL)
+;; biblatex ouvrait une refsection à chaque \section.  Le processeur CSL d'Org
+;; ne connaît que des sous-bibliographies filtrées (:filter PRÉDICAT).  Avant
+;; l'analyse, on relève les clés citées dans chaque section de premier niveau
+;; qui contient un #+print_bibliography:, on fabrique un prédicat qui ne
+;; retient que ces clés, et on l'ajoute au mot-clé.  Avec :heading, un titre
+;; « Références » (\refname de babel) précède la liste, composée dans
+;; l'environnement bibliographieua du préambule.
+;;
+;; Le prédicat reçoit les variables CSL de l'entrée : son identifiant (`id')
+;; n'y figure que pour une bibliographie CSL-JSON.  citeproc-el n'en pose pas
+;; sur les entrées converties depuis BibTeX : d'où le CSL-JSON côté Org.
+;; Numérotation : continue sur tout le document (propre à CSL).
+
+(defvar my/pdfua--section-counter 0
+  "Counter used to name the per-section bibliography predicates.")
+
+(defun my/pdfua--cited-keys (beg end)
+  "Return the citation keys cited between BEG and END."
+  (let (keys)
+    (save-excursion
+      (goto-char beg)
+      (while (re-search-forward "\\[cite[^]:]*:\\([^]]*\\)\\]" end t)
+        (let ((body (match-string 1)) (pos 0))
+          (while (string-match "@\\([^];[:space:]]+\\)" body pos)
+            (cl-pushnew (match-string 1 body) keys :test #'equal)
+            (setq pos (match-end 0))))))
+    (nreverse keys)))
+
+(defun my/pdfua-bibliographies-par-section (backend)
+  "Restrict each section's #+print_bibliography: to the keys cited there.
+Only for the PDF/UA BACKEND."
+  (when (org-export-derived-backend-p backend 'pdfua)
+    (setq my/pdfua--section-counter 0)
+    (save-excursion
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (while (re-search-forward "^\\* " nil t)
+          (let* ((beg (line-beginning-position))
+                 ;; Marqueur : la borne suit les insertions.
+                 (end (copy-marker
+                       (save-excursion
+                         (if (re-search-forward "^\\* " nil t)
+                             (line-beginning-position)
+                           (point-max)))))
+                 (keys (my/pdfua--cited-keys beg end)))
+            (save-excursion
+              (goto-char beg)
+              (while (re-search-forward
+                      "^\\([ \t]*\\)#\\+print_bibliography:\\(.*\\)$" end t)
+                (let* ((indent (match-string 1))
+                       (props (match-string 2))
+                       (fn (intern (format "my/pdfua--bibliographie-%d"
+                                           (cl-incf my/pdfua--section-counter))))
+                       (ks keys))
+                  (defalias fn (lambda (vars) (member (alist-get 'id vars) ks))
+                    "Per-section bibliography predicate, generated at export.")
+                  (end-of-line)
+                  (insert (format " :filter %s" fn))
+                  (forward-line 0)
+                  (when (string-match-p ":heading" props)
+                    (insert indent "#+LATEX: \\subsection*{\\refname}\n"))
+                  ;; Environnement du préambule : police et point d'accroche
+                  ;; (le style n'emploie pas cslbibliography).
+                  (insert indent "#+LATEX: \\begin{bibliographieua}\n")
+                  ;; Repartir après le mot-clé, sans quoi la recherche
+                  ;; suivante le retrouverait indéfiniment.
+                  (end-of-line)
+                  (insert "\n" indent "#+LATEX: \\end{bibliographieua}"))))
+            (set-marker end nil)))))))
+
+(add-hook 'org-export-before-parsing-functions
+          #'my/pdfua-bibliographies-par-section)
+
+;;;; SORTIE FINALE : BROUILLON ET CODE EN LIGNE
+(defun my/pdfua--dedupe-graphics-width (output)
+  "Keep only the first width= key of each \\includegraphics in OUTPUT.
+With #+ATTR_LATEX: :options width=…, Org still appends its default
+width after the user's one, and the last key wins in graphicx."
+  (replace-regexp-in-string
+   "\\\\includegraphics\\[\\([^]]*\\)\\]"
+   (lambda (m)
+     ;; `replace-regexp-in-string' remplace avec les données de
+     ;; correspondance en cours : `split-string' ne doit pas les écraser.
+     (save-match-data
+       (let* ((seen nil)
+              (kept (seq-remove
+                     (lambda (o)
+                       (and (string-match-p "\\`[ \t]*width[ \t]*=" o)
+                            (prog1 seen (setq seen t))))
+                     (split-string (match-string 1 m) ","))))
+         (concat "\\includegraphics[" (string-join kept ",") "]"))))
+   output t t))
+
+(defun my/pdfua-final-output (output _backend info)
+  "Adjust the LaTeX OUTPUT of a PDF/UA export according to INFO.
+Declare \\uacodeinline when the document uses inline code, so that the
+preamble loads lua-ul only then; in draft mode (:ua-draft), drop PDF/UA
+tagging from \\DocumentMetadata to compile faster."
+  (when (string-match-p "\\\\CodeInline{" output)
+    (setq output (replace-regexp-in-string
+                  "^\\\\documentclass.*$" "\\&\n\\\\def\\\\uacodeinline{}"
+                  output nil nil nil)))
+  (setq output (my/pdfua--dedupe-graphics-width output))
+  ;; Le style CSL précède l'appel d'une espace insécable (« texte [1] ») ;
+  ;; écrit « texte [cite:@clé] » dans Org, cela ferait un double blanc.
+  (setq output (replace-regexp-in-string "[ \t]+ " " " output t t))
+  (when (plist-get info :ua-draft)
+    (setq output (replace-regexp-in-string
+                  ",[ \t\n]*\\(?:pdfstandard=ua-2\\|testphase=phase-III\\)" ""
+                  output t t)))
+  output)
+
+;;;; BACKEND PDF/UA
+;; Backend dérivé de `latex' : les filtres propres à cette chaîne ne touchent
+;; ni l'export LaTeX standard ni Beamer.  Menu : C-c C-e u.
+
+(org-export-define-derived-backend 'pdfua 'latex
+  :menu-entry
+  '(?u "Export PDF/UA (LuaLaTeX)"
+       ((?l "Fichier .tex" my/pdfua-export-to-latex)
+        (?p "PDF" my/pdfua-export-to-pdf)
+        (?o "PDF et ouvrir"
+            (lambda (a s v b)
+              (if a (my/pdfua-export-to-pdf t s v b)
+                (org-open-file (my/pdfua-export-to-pdf nil s v b)))))
+        (?d "PDF brouillon (sans balisage)" my/pdfua-export-draft-to-pdf)))
+  :options-alist
+  '((:latex-class "LATEX_CLASS" nil "article-ua" t)
+    (:ua-draft nil "ua-draft" nil))
+  :filters-alist
+  '((:filter-code . my/org-latex-inline-code)
+    (:filter-inline-src-block . my/org-latex-inline-code)
+    (:filter-final-output . my/pdfua-final-output)))
+
+;;;###autoload
+(defun my/pdfua-export-to-latex
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to a PDF/UA LaTeX file.
+ASYNC, SUBTREEP, VISIBLE-ONLY, BODY-ONLY and EXT-PLIST are as in
+`org-latex-export-to-latex'."
+  (interactive)
+  (org-export-to-file 'pdfua (org-export-output-file-name ".tex" subtreep)
+    async subtreep visible-only body-only ext-plist))
+
+;;;###autoload
+(defun my/pdfua-export-to-pdf
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to a tagged PDF/UA-2 file through LuaLaTeX.
+ASYNC, SUBTREEP, VISIBLE-ONLY, BODY-ONLY and EXT-PLIST are as in
+`org-latex-export-to-pdf'.  Return the PDF file name."
+  (interactive)
+  (org-export-to-file 'pdfua (org-export-output-file-name ".tex" subtreep)
+    async subtreep visible-only body-only ext-plist
+    #'org-latex-compile))
+
+;;;###autoload
+(defun my/pdfua-export-draft-to-pdf
+    (&optional async subtreep visible-only body-only ext-plist)
+  "Export current buffer to an untagged draft PDF, faster to compile.
+ASYNC, SUBTREEP, VISIBLE-ONLY, BODY-ONLY and EXT-PLIST are as in
+`my/pdfua-export-to-pdf'."
+  (interactive)
+  (my/pdfua-export-to-pdf async subtreep visible-only body-only
+                          (plist-put (copy-sequence ext-plist) :ua-draft t)))
 
 (provide 'my-export-config)
 ;;; my-export-config.el ends here 

@@ -1,0 +1,31 @@
+name: Non-régression export
+
+# Banc de bout en bout : essai.org → backend pdfua (processus asynchrone
+# réel) → LuaLaTeX, en article-ua, book-ua et profil brouillon.
+on:
+  push:
+    paths: ["lisp/**", "latex/**", "csl/**", "tests/regression/**", ".github/workflows/regression.yml"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    name: Export PDF/UA (Emacs 31.1, LuaLaTeX)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: purcell/setup-emacs@master
+        with:
+          version: "31.1"
+      - name: TeX Live et polices de repli
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            texlive-luatex texlive-latex-extra texlive-lang-french \
+            texlive-fonts-recommended texlive-science texlive-plain-generic \
+            latexmk fonts-dejavu-core fonts-lmodern fontconfig python3
+      - name: Banc de non-régression
+        run: tests/regression/run.sh
