@@ -572,7 +572,7 @@ Only for the PDF/UA BACKEND."
                   (when (string-match-p ":heading" props)
                     (insert indent "#+LATEX: \\subsection*{\\refname}\n"))
                   ;; Environnement du préambule : police et point d'accroche
-                  ;; (le style n'emploie pas cslbibliography).
+                  ;; (cslbibliography n'existe qu'à partir d'Org 9.8).
                   (insert indent "#+LATEX: \\begin{bibliographieua}\n")
                   ;; Repartir après le mot-clé, sans quoi la recherche
                   ;; suivante le retrouverait indéfiniment.
