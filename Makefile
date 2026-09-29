@@ -20,3 +20,5 @@ test:
 	  --eval '(setq my/perf-root (make-temp-file "perf-" t))' \
 	  -l perf/perf-start.el -l perf/perf-self-test.el \
 	  -f ert-run-tests-batch-and-exit
+	$(EMACS) -Q --batch -L lisp -l tests/my-export-config-test.el \
+	  -f ert-run-tests-batch-and-exit

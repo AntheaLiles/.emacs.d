@@ -63,6 +63,7 @@ réorganisée sans adapter ces chemins.
 │   ├── perf-self-test.el    Test ERT de non-régression du collecteur
 │   └── README.md            Description du jeu de données produit
 ├── scripts/check.el       Vérifications statiques (parenthèses, compilation)
+├── tests/                 Tests ERT (export Org : code en ligne)
 ├── Makefile               `make check` : REUSE + lint + test ERT
 ├── LICENSES/              Textes intégraux des licences (REUSE)
 ├── REUSE.toml             Licences des fichiers sans en-tête SPDX
@@ -112,6 +113,24 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 | `my-export-*` | Pipeline Org → LuaLaTeX → PDF (latexmk, `engrave-faces`, BibLaTeX) et affichage du PDF. | Utilise `latex/preamble-article.tex`. |
 | `my-citar-noter` | Ouvre le PDF d'une référence et lance org-noter. | `C-c n P`. |
 | `my-deps` | Vérifie les exécutables et fichiers requis, avec cache BLAKE3. | Désactivé dans `init.el` (lignes commentées). |
+
+## Code en ligne à l'export PDF
+
+| Écrit dans Org | Rendu PDF |
+| --- | --- |
+| `~code~` | monospace sur fond grisé |
+| `src_emacs-lisp{(setq x 1)}`, `src_python{x = 1}`… | monospace sur fond grisé, **coloré** selon le langage (engrave-faces) |
+| `=verbatim=` | monospace simple, sans fond |
+| `src_python[:exports results]{1 + 1}` | le **résultat** de l'évaluation (`2`) |
+
+Le fond grisé vient de la macro `\CodeInline` du préambule (paquet `lua-ul`,
+LuaLaTeX) : le code reste sécable en fin de ligne. Sa couleur se règle via
+`fondcodeenligne` dans `latex/preamble-article.tex`.
+
+> [!IMPORTANT]
+> Par défaut, Org **exécute** les blocs `src_…` à l'export et n'en imprime que
+> le résultat. Cette configuration exporte le **code** à la place (et
+> n'exécute rien) ; il faut demander `:exports results` explicitement.
 
 ## Prérequis
 
@@ -204,7 +223,7 @@ make check    # = make reuse lint test
 | --- | --- | --- |
 | `reuse` | `reuse lint` | Conformité REUSE de chaque fichier. |
 | `lint` | `emacs -Q --batch -l scripts/check.el` | Parenthèses de tous les `.el`, compilation à octets des modules (dans un dossier temporaire). |
-| `test` | ERT sur `perf/perf-self-test.el` | Non-régression du collecteur de télémétrie. |
+| `test` | ERT sur `perf/perf-self-test.el` et `tests/` | Non-régression du collecteur de télémétrie et de l'export Org. |
 
 La CI GitHub exécute les mêmes vérifications à chaque push (Emacs 31.1 et
 snapshot).

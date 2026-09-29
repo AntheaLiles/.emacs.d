@@ -48,6 +48,53 @@
         '(("commandchars" . "\\\\\\{\\}")
           ("fontsize" . "\\small")))
 
+;;;; CODE EN LIGNE
+;; ~code~ et src_LANG{code} sont composés par la macro \CodeInline du
+;; préambule : monospace sur fond grisé (lua-ul, sécable en fin de ligne).
+;;
+;;   ~code~              monospace sur fond grisé, sans coloration ;
+;;   src_LANG{code}      idem, coloré selon LANG par engrave-faces
+;;                       (ex. src_emacs-lisp{(setq x 1)}, src_python{x = 1}) ;
+;;   =verbatim=          inchangé : monospace simple, sans fond.
+;;
+;; ox-latex produit \texttt{…} pour ~code~ et \Verb[…]{…} pour les blocs en
+;; ligne.  Le contenu d'engrave-faces a déjà tous ses caractères spéciaux
+;; échappés : c'est du LaTeX ordinaire, que l'on peut passer en argument à
+;; \CodeInline sans les contraintes du verbatim.  Seules les espaces sont
+;; rendues explicites (\ ), pour ne pas être fusionnées.
+
+(defconst my/org-latex-inline-code-regexp
+  (concat "\\`\\(?:\\\\texttt\\|\\\\Verb\\(?:\\[[^]]*\\]\\)?\\)"
+          "{\\(\\(?:.\\|\n\\)*\\)}\\([ \t\n]*\\)\\'")
+  "Match ox-latex output for inline code: \\texttt{…} or \\Verb[…]{…}.
+Group 1 is the code, group 2 the trailing blanks added by the exporter.")
+
+(defun my/org-latex-inline-code (text _backend info)
+  "Rewrap inline code TEXT in \\CodeInline for LaTeX exports.
+Used as a filter on `code' and `inline-src-block' objects.  The backend
+is read from INFO: titles are exported through an anonymous backend
+derived from `latex', whose name, passed as the second argument, is nil."
+  (if (and (org-export-derived-backend-p (plist-get info :back-end) 'latex)
+           (string-match my/org-latex-inline-code-regexp text))
+      (let ((code (match-string 1 text))
+            (blanks (match-string 2 text)))
+        (concat "\\CodeInline{"
+                (replace-regexp-in-string " " "\\ " code t t)
+                "}" blanks))
+    text))
+
+(add-to-list 'org-export-filter-code-functions #'my/org-latex-inline-code)
+(add-to-list 'org-export-filter-inline-src-block-functions
+             #'my/org-latex-inline-code)
+
+;; Un bloc en ligne est, par défaut, ÉVALUÉ à l'export et remplacé par son
+;; résultat (:exports results).  Or la confirmation Babel est coupée pendant
+;; l'export (voir BABEL) : src_sh{rm …} s'exécuterait sans demander.  Par
+;; défaut, on exporte donc le CODE ; pour un résultat, l'écrire
+;; explicitement : src_python[:exports results]{1 + 1}.
+(with-eval-after-load 'ob-core
+  (setf (alist-get :exports org-babel-default-inline-header-args) "code"))
+
 ;;;; OPTIONS ORG PAR DÉFAUT
 ;; org-export-with-toc nil : intentionnel.
 ;; La ToC est placée manuellement dans chaque document via #+TOC: headlines N
@@ -66,6 +113,7 @@
                ,(concat "\\DocumentMetadata{lang=fr,pdfversion=2.0,pdfstandard=ua-2,
                                    testphase=phase-III}
                 \\documentclass[a4paper,11pt]{article}
+                \\newcommand{\\emacsdir}{" user-emacs-directory "}
                 \\input{" my/latex-preamble-file "}
                [NO-DEFAULT-PACKAGES]
                [PACKAGES]
