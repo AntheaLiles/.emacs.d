@@ -30,7 +30,7 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 - `scripts/check.el` (parenthèses et compilation à octets sans écrire dans le
   dépôt) et `Makefile` (`make check`).
 - CI GitHub Actions : vérification REUSE, lint Emacs Lisp et test ERT du
-  collecteur (Emacs 30.2 et snapshot) ; Dependabot pour les actions ;
+  collecteur (Emacs 31.1 et snapshot) ; Dependabot pour les actions ;
   gabarits de tickets et de pull request.
 - Consignes (`.claude/CLAUDE.md`), réglages, hook de démarrage de session et
   commande `/check` pour Claude Code.
