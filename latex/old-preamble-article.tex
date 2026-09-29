@@ -1,0 +1,397 @@
+% SPDX-FileCopyrightText: 2026 AntheaLiles
+% SPDX-License-Identifier: CC-BY-SA-4.0
+% ==============================================================================
+% preamble-article.tex — Préambule LuaLaTeX PDF/UA-2 haute performance pour Org-mode
+% Requis dans le manuscrit Org : défini via org-latex-classes dans Emacs
+% ==============================================================================
+
+%%% 01. Outils de base & Langue
+\usepackage{etoolbox}
+\usepackage[main=french,english]{babel}
+\usepackage[dvipsnames,svgnames,table]{xcolor}
+\definecolor{customgray}{HTML}{505050}
+
+%%% 02. Géométrie & Zone d'annotation
+%
+% A4 (21 cm) = Marges (2 x 2.4 cm) + Colonne lecture (12.1 cm / ~60 car.) + Marge externe (3.6 cm).
+%
+\newlength{\zoneannotation}        \setlength{\zoneannotation}{3.6cm}
+\newlength{\ecartannotation}       \setlength{\ecartannotation}{0.5cm}
+\newlength{\largeurimpression}     \setlength{\largeurimpression}{\dimexpr\textwidth+\ecartannotation+\zoneannotation\relax}
+\newlength{\debordementannotation} \setlength{\debordementannotation}{\dimexpr\ecartannotation+\zoneannotation\relax}
+
+\usepackage[a4paper, twoside,
+            top=3.2cm, bottom=3.2cm, inner=2.4cm, outer=2.4cm,
+            marginparwidth=\zoneannotation, marginparsep=\ecartannotation,
+            includemp]{geometry}
+
+% Page de garde symétrique sans zone d'annotation
+\AtBeginDocument{%
+  \let\titreoriginal\maketitle
+  \renewcommand{\maketitle}{%
+    \newgeometry{a4paper, top=3.2cm, bottom=3.2cm, left=2.4cm, right=2.4cm}%
+    \titreoriginal
+    \restoregeometry}}
+
+\usepackage{fancyhdr}
+\pagestyle{fancy}\fancyhf{}
+\renewcommand{\headrulewidth}{0pt}
+\setcounter{secnumdepth}{3}
+\setlength{\columnsep}{0.8cm}
+\setlength{\parskip}{0.5em}
+\setlength{\parindent}{0pt}
+\raggedbottom
+
+%%% 03. Polices & Typographie (Optimisé LuaLaTeX & Tagged PDF)
+%
+% Note Perf : protrusion=true est très rapide. expansion=false évite le goulot d'étranglement
+% de calcul microtypographique sous LuaTeX combiné au balisage PDF/UA.
+%
+\usepackage{fontspec}
+\usepackage{unicode-math}
+\usepackage[protrusion=true,expansion=false,final]{microtype}
+
+\setmainfont{Luciole-Regular.ttf}[
+  ItalicFont=Luciole-Regular-Italic.ttf,
+  BoldFont=Luciole-Bold.ttf,
+  BoldItalicFont=Luciole-Bold-Italic.ttf]
+\setmonofont{IosevkaSS05-Regular.ttf}[
+  ItalicFont=IosevkaSS05-Italic.ttf,
+  BoldFont=IosevkaSS05-Bold.ttf,
+  BoldItalicFont=IosevkaSS05-BoldItalic.ttf]
+\setmathfont{Luciole-Math.otf}
+
+\tolerance=1500
+\hyphenpenalty=100
+\emergencystretch=1.5em
+\clubpenalty=10000
+\widowpenalty=10000
+\displaywidowpenalty=10000
+
+\makeatletter
+% Hiérarchie de corps
+\renewcommand{\tiny}        {\@setfontsize\tiny{7}{8.5}}
+\renewcommand{\scriptsize}  {\@setfontsize\scriptsize{8}{10}}
+\renewcommand{\footnotesize}{\@setfontsize\footnotesize{9}{11.5}}
+\renewcommand{\small}       {\@setfontsize\small{10}{13}}
+\renewcommand{\normalsize}  {\@setfontsize\normalsize{11}{14.3}}
+\renewcommand{\large}       {\@setfontsize\large{13}{16}}
+\renewcommand{\Large}       {\@setfontsize\Large{15}{18}}
+\renewcommand{\LARGE}       {\@setfontsize\LARGE{17}{20}}
+\renewcommand{\huge}        {\@setfontsize\huge{20}{23}}
+\renewcommand{\Huge}        {\@setfontsize\Huge{23}{26}}
+
+% Titres sans gras (préservation des sockets de balisage PDF/UA-2)
+\renewcommand{\section}{\@startsection{section}{1}{\z@}{-3.5ex \@plus -1ex \@minus -.2ex}{2.3ex \@plus.2ex}{\normalfont\Large}}
+\renewcommand{\subsection}{\@startsection{subsection}{2}{\z@}{-3.25ex\@plus -1ex \@minus -.2ex}{1.5ex \@plus .2ex}{\normalfont\large}}
+\renewcommand{\subsubsection}{\@startsection{subsubsection}{3}{\z@}{-3.25ex\@plus -1ex \@minus -.2ex}{1.5ex \@plus .2ex}{\normalfont\normalsize}}
+\makeatother
+
+%%% 04. Tableaux & Débordement Extérieur
+%
+% MÉMO UTILISATION ORG-MODE (Tableaux) :
+%   #+ATTR_LATEX: :environment tabularx :width \largeurimpression :align Z{1.3}Yl :center nil
+%   Colonnes : Y = fluide égale | Z{p} = fluide pondérée (ex: Z{1.5}) | l = fixe/naturelle
+%
+\usepackage{array,booktabs,longtable,tabularx,xltabular,multirow,makecell,diagbox,changepage}
+
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{Z}[1]{>{\hsize=#1\hsize\raggedright\arraybackslash}X}
+\renewcommand{\tabularxcolumn}[1]{m{#1}}
+
+\strictpagecheck
+\newcommand{\versexterieur}{\noindent\checkoddpage\ifoddpage\else\hspace*{-\debordementannotation}\fi}
+\BeforeBeginEnvironment{tabularx}{\versexterieur}
+\BeforeBeginEnvironment{xltabular}{\versexterieur}
+
+%%% 05. Flottants, Figures, Tableaux & Légendes
+%
+% MÉMO UTILISATION ORG-MODE (Figures) :
+%   - Figure standard : #+ATTR_LATEX: :width 0.9\linewidth :options alt={Texte alternatif}
+%   - Figure large    : #+LATEX: \imagelargetrue
+%                       #+ATTR_LATEX: :width \largeurimpression :options alt={Texte alternatif}
+%   - Listing         : #+ATTR_LATEX: :caption Légende sous le code
+%
+% MÉMO UTILISATION ORG-MODE (Description, Note, Source, texte de remplacement) :
+%
+%   LES QUATRE MOTS-CLÉS PERSONNELS OUVRENT LA PILE. C'est une contrainte d'org,
+%   non une préférence : il n'attache à un élément que les mots-clés affiliés qui
+%   le précèdent SANS INTERRUPTION, et #+DESC:, #+NOTE:, #+SOURCE: et #+ALT_TEXT:
+%   n'en sont pas. Placés après #+CAPTION:, ils coupent la chaîne et la figure
+%   perd sa légende, son numéro et son étiquette. Placés en tête, ils ne coupent
+%   rien — et le document se compose correctement même si le filtre n'a pas
+%   tourné, sans les items mais avec ses légendes.
+%
+%   #+DESC:     Ce que la figure présente, pour dispenser le texte de le raconter
+%   #+NOTE:     Comment lire le graphique lorsque sa forme n'est pas courante
+%   #+SOURCE:   D'où vient la donnée ou l'image
+%   #+ALT_TEXT: Description destinée à la synthèse vocale
+%   #+CAPTION:  Le titre du flottant
+%   #+NAME:     fig:etiquette
+%   #+ATTR_LATEX: :placement [htbp] :options width=.8\largeurimpression
+%   [[./img/figure.pdf]]
+%
+%   Les quatre premiers sont optionnels et d'ordre libre entre eux.
+%   my/org-items-flottants (my-export-config.el) les retire avant l'analyse et
+%   les replie là où org les attend : DESC, NOTE et SOURCE dans la légende ;
+%   ALT_TEXT dans :options alt={}. Un contrôle refuse toute autre disposition.
+%
+%   Partage des rôles, à ne pas confondre :
+%     #+ALT_TEXT: dit ce que l'image montre                → synthèse vocale
+%     #+DESC:     dit ce que l'image présente              → le lecteur
+%     #+NOTE:     dit comment lire ce qui est présenté     → le lecteur
+%     #+SOURCE:   dit d'où cela vient                      → la provenance
+%
+\usepackage{graphicx,adjustbox,wrapfig,float}
+\usepackage{caption,subcaption}
+
+\captionsetup{format=plain, labelfont=bf, font=small}
+
+\newif\ifimagelarge
+\imagelargefalse
+
+%%%% Grille de légende : Titre, Description, Note, Source
+%
+% Les trois macros ne composent rien : elles déposent leur argument dans un
+% registre que le format de légende relit après avoir composé la ligne de titre.
+% Le dépôt est global et idempotent, donc insensible au nombre de passes que le
+% paquet caption effectue sur la légende.
+%
+\makeatletter
+\newcommand{\itemdescription}{}
+\newcommand{\itemnote}{}
+\newcommand{\itemsource}{}
+\newcommand{\descfig}[1]{\gdef\itemdescription{#1}}
+\newcommand{\notefig}[1]{\gdef\itemnote{#1}}
+\newcommand{\srcfig}[1]{\gdef\itemsource{#1}}
+\newcommand{\razitemsflottant}{%
+  \global\let\itemdescription\@empty
+  \global\let\itemnote\@empty
+  \global\let\itemsource\@empty}
+\razitemsflottant
+
+% Colonne d'étiquettes, calibrée sur la plus large une fois les polices chargées
+\newlength{\etiquetteflottant}
+\newlength{\corpsflottant}
+\AtBeginDocument{\settowidth{\etiquetteflottant}{\small\bfseries Description :\hspace{1.4em}}}
+
+% Une ligne de la grille : #1 corps, #2 étiquette, #3 texte
+\newcommand{\ligneflottant}[3]{%
+  \par\noindent
+  \parbox[t]{\etiquetteflottant}{#1\raggedright #2}%
+  \parbox[t]{\corpsflottant}{#1\raggedright #3}%
+  \par}
+
+% La ligne de titre : #1 largeur totale, #2 étiquette de numéro, #3 séparateur, #4 titre
+\newcommand{\grilletitre}[4]{%
+  \setlength{\corpsflottant}{\dimexpr#1-\etiquetteflottant\relax}%
+  \ligneflottant{\small}{\bfseries#2#3}{#4}}
+
+% Les trois items optionnels : #1 largeur totale
+\newcommand{\grilleitems}[1]{%
+  \setlength{\corpsflottant}{\dimexpr#1-\etiquetteflottant\relax}%
+  \ifx\itemdescription\@empty\else
+    \vspace{0.55em}\ligneflottant{\small}{Description :}{\itemdescription}\fi
+  \ifx\itemnote\@empty\else
+    \vspace{0.55em}\ligneflottant{\footnotesize}{Note :}{\itemnote}\fi
+  \ifx\itemsource\@empty\else
+    \vspace{0.55em}\ligneflottant{\footnotesize}{Source :}{\itshape\itemsource}\fi}
+
+% Les deux d'un coup, pour un flottant dont la légende est en dessous
+\newcommand{\grilleflottant}[4]{\grilletitre{#1}{#2}{#3}{#4}\grilleitems{#1}}
+
+% Vrai si au moins un item a été déposé
+\newcommand{\siitemsflottant}[1]{%
+  \ifx\itemdescription\@empty\ifx\itemnote\@empty\ifx\itemsource\@empty
+  \else#1\fi\else#1\fi\else#1\fi}
+\makeatother
+
+%%%% Formats de légende adaptés au débordement extérieur
+%
+% Tableau : le titre reste au-dessus, où org place la légende ; les trois items
+% descendent sous le filet de fin, à la manière d'une note de tableau.
+% Figure : la légende étant déjà en dessous, la grille entière y tient.
+%
+\DeclareCaptionFormat{aplomb}{%
+  \versexterieur\parbox{\largeurimpression}{\grilletitre{\largeurimpression}{#1}{#2}{#3}}}
+
+\DeclareCaptionFormat{sousimage}{%
+  \ifimagelarge
+    \versexterieur\parbox{\largeurimpression}{\grilleflottant{\largeurimpression}{#1}{#2}{#3}}%
+  \else
+    \grilleflottant{\linewidth}{#1}{#2}{#3}%
+  \fi}
+
+\DeclareCaptionFormat{souslecode}{\par\nobreak#1#2#3}
+
+%%%% Application aux types d'entrées
+\DeclareCaptionLabelSeparator{grille}{~:}
+
+% Tables : conteneur élargi, titre en aplomb, items sous le tableau
+\captionsetup[table]{format=aplomb, singlelinecheck=false, labelsep=grille}
+\AtBeginEnvironment{table}{%
+  \setlength{\linewidth}{\largeurimpression}%
+  \setlength{\hsize}{\largeurimpression}%
+  \setlength{\columnwidth}{\largeurimpression}}
+\AtEndEnvironment{table}{%
+  \siitemsflottant{%
+    \par\addvspace{0.7em}%
+    \versexterieur\parbox{\largeurimpression}{\grilleitems{\largeurimpression}}\par}%
+  \razitemsflottant}
+
+% Figures : format dynamique avec réinitialisation automatique des registres
+\captionsetup[figure]{format=sousimage, singlelinecheck=false, labelsep=grille}
+\AtEndEnvironment{figure}{\global\imagelargefalse\razitemsflottant}
+
+% Listings : légende en dessous, typographie dédiée
+\captionsetup[listing]{format=souslecode, labelfont=bf, textfont=it}
+
+%%% 06. Blocs de code & Listes standard
+\usepackage[normalem]{ulem}
+\usepackage{enumitem}\setlist{nosep}\setlist[itemize]{leftmargin=*}
+\usepackage{fvextra} % Requis avant csquotes
+\usepackage{csquotes}
+\usepackage{newfloat}
+\DeclareFloatingEnvironment[fileext=lst,listname={},name=Listing]{listing}
+\fvset{breaklines=true,breakanywhere=true}
+
+%%% 07. Factorisation des listes & Messages de repli
+%
+% MÉMO UTILISATION :
+%   \listoffigures, \listoftables, \listoflistings affichent un message bilingue si vides.
+%   Pour brancher une nouvelle liste (ex: glossaire) :
+%     \renewcommand{\printglossary}{\ListeOuRepli{glo}{gls}{\videglossaire}}
+%
+\newcommand{\FrEn}[2]{\ifdefstring{\languagename}{french}{#1}{#2}}
+\newcommand{\MessageVide}[2]{%
+  \par\smallskip\noindent\emph{\FrEn{#1 dans ce document.}{#2 in this document.}}\par\smallskip}
+\newcommand{\DeclareRepliVide}[3]{\csdef{vide#1}{\MessageVide{#2}{#3}}}
+
+\DeclareRepliVide{figures}  {Aucune figure}              {No figure}
+\DeclareRepliVide{tableaux} {Aucun tableau}              {No table}
+\DeclareRepliVide{listings} {Aucun listing}              {No listing}
+\DeclareRepliVide{index}    {Aucune entrée d'index}      {No index entry}
+\DeclareRepliVide{acronymes}{Aucun acronyme}             {No acronym}
+\DeclareRepliVide{glossaire}{Aucune entrée de glossaire} {No glossary entry}
+
+\makeatletter
+\newcommand{\ListeOuRepli}[3]{\ifnum\value{#1}>\z@ \@starttoc{#2}\else #3\fi}
+\renewcommand{\listoffigures}{\ListeOuRepli{figure}{lof}{\videfigures}}
+\renewcommand{\listoftables}{\ListeOuRepli{table}{lot}{\videtableaux}}
+\renewcommand{\listoflistings}{\ListeOuRepli{listing}{lst}{\videlistings}}
+\makeatother
+
+%%% 08. Notes marginales, Annexes & Bibliographie
+%
+% MÉMO UTILISATION ORG-MODE :
+%   - Remarque marginale : \RMQ{Texte de la note en marge} (balisée sémantiquement en <Aside>)
+%   - Bibliographie      : #+print_bibliography: :heading subbibliography
+%
+\usepackage[toc,page]{appendix}
+\usepackage{marginnote}
+\usepackage{perpage}\MakePerPage{footnote}
+\renewcommand{\thefootnote}{\alph{footnote}}
+\renewcommand*{\marginfont}{\footnotesize\raggedright}
+
+% Remarque numérotée conforme PDF/UA-2 (Structure Aside)
+\newcounter{rmq}
+\renewcommand{\thermq}{\arabic{rmq}}
+\newcommand{\RMQ}[1]{%
+  \refstepcounter{rmq}%
+  \tagstructbegin{tag=Aside}%
+    \marginnote{\textbf{RMQ~\thermq.}~#1}%
+  \tagstructend%
+  \textsuperscript{\textsf{R\thermq}}}
+
+\usepackage[
+  bibstyle=iso-numeric,
+  citestyle=numeric-comp,
+  doi=true,
+  isbn=false,
+  mincrossrefs=2,
+  sorting=none,
+  sortcites=true,
+  autolang=other,
+  backend=biber]{biblatex}
+%
+% refsection=section retiré le 8 septembre. L'option demandait à biblatex de
+% rustiner \@startsection, \@sect et \@ssect au \begin{document} pour ouvrir
+% une refsection à chaque titre. Les trois rustines échouaient, titletoc (§ 10)
+% ayant déjà redéfini ces trois macros — trois erreurs à chaque compilation :
+%
+%     Package biblatex Error: Patching \@startsection failed.
+%
+% L'option était de surcroît sans emploi : le crochet du § 10 ouvre déjà la
+% refsection à la main, et c'est lui qui donne aux sous-bibliographies leur
+% segment. Retirer l'option ne change donc rien au rendu, et rend le journal
+% de compilation lisible.
+\renewcommand*{\bibfont}{\footnotesize}
+
+%%% 09. Environnements Mathématiques & Théorèmes
+%
+% MÉMO UTILISATION ORG-MODE :
+%   #+BEGIN_EXPORT latex
+%   \begin{theorem}[Titre optionnel]
+%     \begin{statement} Énoncé \end{statement}
+%     \begin{proofsketch} Idée de la démonstration \end{proofsketch}
+%   \end{theorem}
+%   #+END_EXPORT
+%
+\AtBeginDocument{%
+  \let\llbracket\lBrack \let\rrbracket\rBrack
+  \let\Box\mdlgwhtsquare \let\square\mdlgwhtsquare
+  \let\Diamond\mdlgwhtdiamond \let\bigcirc\mdlgwhtcircle
+  \let\leadsto\rightsquigarrow
+}
+
+\newcounter{theoreme}
+\newcommand{\entetetheoreme}[3]{\par\addvspace{0.6em}\noindent{#1#2\ifblank{#3}{}{ : #3}}\par\nobreak\vspace{0.15em}\nobreak}
+\newenvironment{theorem}[1][]{\refstepcounter{theoreme}\entetetheoreme{\bfseries}{Théorème \thetheoreme}{#1}}{\par\addvspace{0.6em}}
+\newenvironment{statement}[1][]{\entetetheoreme{\normalfont}{Déclaration \thetheoreme}{#1}}{\par}
+\newenvironment{proofsketch}{\entetetheoreme{\itshape}{Esquisse de preuve}{}\itshape\ignorespaces}{\unskip\nobreak\hfill$\mdlgwhtsquare$\par}
+
+%%% 10. Pagination & Tables des matières (ToC)
+%
+% MÉMO UTILISATION ORG-MODE :
+%   - ToC générale 1er niveau : #+LATEX: \clearpage
+%                               #+TOC: headlines 1
+%                               #+LATEX: \clearpage
+%   - ToC locale de section   : #+TOC: headlines 2 local
+%
+\usepackage{lastpage}
+\fancyfoot[C]{\thepage\ / \pageref{LastPage}}
+
+% Nouvelle section biblio via hook officiel (compatible balisage PDF/UA)
+
+
+\usepackage{titletoc}
+\titlecontents{subsection}[1.5em]{\small}{\contentslabel{2.3em}}{\hspace*{-2.3em}}{\titlerule*[1pc]{.}\contentspage}
+\titlecontents{subsubsection}[3.8em]{\small}{\contentslabel{3.2em}}{\hspace*{-3.2em}}{\titlerule*[1pc]{.}\contentspage}
+
+%%% 11. ORCID & Hyperliens (Toujours en dernier)
+%
+% MÉMO UTILISATION ORG-MODE :
+%   - Lien ORCID : \orcidlink{0000-0000-0000-0000}
+%
+\newcommand{\orcidicon}{~/.emacs.d/assets/ORCID-iD-icon-BW-16x16.png}
+\newcommand{\orcidlink}[1]{\href{https://orcid.org/#1}{\raisebox{-0.1em}{\includegraphics[height=\fontcharht\font`A]{\orcidicon}}}}
+
+\usepackage{hyperref}
+\pdfstringdefDisableCommands{%
+  \let\par\empty \let\\\empty
+  \def\footnote#1{} \def\marginpar#1{} \def\marginnote#1{}%
+  \def\href#1#2{#2} \def\textcolor#1#2{#2} \def\uline#1{#1} \def\sout#1{#1} \def\enquote#1{#1}%
+  \def\orcidlink#1{ORCID: #1}%
+}
+\hypersetup{
+  colorlinks=true,
+  linkcolor=customgray,
+  citecolor=customgray,
+  urlcolor=customgray,
+  pdfborder={0 0 0},
+  unicode=true,
+  breaklinks=true,
+  bookmarksnumbered=true,
+  pdflang=fr,
+  pdfdisplaydoctitle=true}
+\usepackage{bookmark}

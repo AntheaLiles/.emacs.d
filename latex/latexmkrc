@@ -1,0 +1,8 @@
+# ~/.emacs.d/latex/latexmkrc
+#
+# SPDX-FileCopyrightText: 2026 AntheaLiles
+# SPDX-License-Identifier: CC-BY-SA-4.0
+#
+# Réservé pour de futures optimisations latexmk
+$lualatex = 'lualatex -file-line-error -interaction=nonstopmode -synctex=1 %O %S';
+$pdf_mode = 4; # 4 = lualatex

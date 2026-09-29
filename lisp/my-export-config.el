@@ -1,0 +1,366 @@
+;;; my-export-config.el --- Shared Org export configuration -*- lexical-binding: t; -*-
+;;
+;; SPDX-FileCopyrightText: 2026 AntheaLiles
+;; SPDX-License-Identifier: LGPL-3.0-or-later
+;;
+;; This file is not part of GNU Emacs.
+
+;;; Commentary:
+;; Source unique de vérité pour l'export Org → PDF.
+;; Chargé par init.el (via with-eval-after-load 'ox-latex)
+;; et par my-export-async.el (directement).
+;;
+;; Prérequis :
+;;   - org, ox-latex chargés
+;;   - Variable `my/bibliography-files' définie via my-paths.el
+
+;;; Code:
+
+;;;; PIPELINE LUALATEX
+(setopt org-latex-compiler "lualatex"
+        org-latex-pdf-process
+        '("latexmk -lualatex -shell-escape -interaction=nonstopmode -f -output-directory=%o -r ~/.emacs.d/latex/latexmkrc %f")
+        org-latex-prefer-user-labels t)
+
+;;;; BACKEND ENGRAVED
+(setopt org-latex-src-block-backend 'engraved
+        org-latex-engraved-options
+        '(("commandchars" . "\\\\\\{\\}")
+          ("fontsize" . "\\small")))
+
+;;;; OPTIONS ORG PAR DÉFAUT
+;; org-export-with-toc nil : intentionnel.
+;; La ToC est placée manuellement dans chaque document via #+TOC: headlines N
+;; avec mise en forme personnalisée (multicols, taille, etc.)
+(setopt org-export-with-sub-superscripts '{}
+        org-export-with-special-strings t
+        org-export-with-fixed-width t
+        org-export-with-timestamps t
+        org-export-with-toc nil
+        org-export-with-tags nil
+        org-export-headline-levels 5)
+
+;;;; CLASSES LATEX
+(add-to-list 'org-latex-classes
+             '("article"
+               "\\DocumentMetadata{lang=fr,pdfversion=2.0,pdfstandard=ua-2,
+                                   testphase=phase-III}
+                \\documentclass[a4paper,11pt]{article}
+                \\input{~/.emacs.d/latex/preamble-article.tex}
+               [NO-DEFAULT-PACKAGES]
+               [PACKAGES]
+               [EXTRA]"
+               ("\\section{%s}" . "\\section*{%s}")
+               ("\\subsection{%s}" . "\\subsection*{%s}")
+               ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
+               ("\\paragraph{%s}" . "\\paragraph*{%s}")
+               ("\\subparagraph{%s}" . "\\subparagraph*{%s}")))
+
+;;;; CITATIONS
+(setopt org-cite-global-bibliography my/bibliography-files
+        org-cite-export-processors '((latex biblatex) (t csl)))
+
+;;;; BABEL
+;; Par défaut, demander confirmation avant d'exécuter un bloc babel.
+;; Pendant l'export, désactiver la confirmation automatiquement
+;; via un hook (voir ci-dessous).
+;; Cela évite :
+;;   1. L'exécution silencieuse de code à l'ouverture d'un fichier tiers
+;;   2. Le ralentissement à l'ouverture (blocs exécutés prématurément)
+(setopt org-confirm-babel-evaluate t)
+
+(defun my/org-babel-confirm-off-for-export (backend)
+  "Disable babel confirmation during export.
+BACKEND is the export backend (unused but required by the hook)."
+  (setq-local org-confirm-babel-evaluate nil))
+
+(add-hook 'org-export-before-processing-hook
+          #'my/org-babel-confirm-off-for-export)
+
+;;;; OUTILLAGE COMMUN AUX FILTRES DE PRÉ-ANALYSE
+;;
+;; Les filtres qui suivent réécrivent le tampon avant qu'Org ne l'analyse.
+;; Deux d'entre eux doivent épargner le contenu des blocs (#+BEGIN_SRC,
+;; #+BEGIN_EXPORT, #+BEGIN_EXAMPLE…), où le texte est littéral et ne doit
+;; jamais être transformé.
+
+(defun my/org-regions-de-bloc ()
+  "Rend la liste des régions (DÉBUT . FIN) couvertes par un bloc Org.
+Un bloc va de la ligne #+BEGIN_… à la ligne #+END_… correspondante,
+bornes comprises.  Les blocs imbriqués sont traités par leur bloc
+englobant, ce qui suffit à l'usage qui en est fait ici : savoir si une
+position donnée est littérale ou non."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((regions '()) (debut nil) (profondeur 0)
+          (case-fold-search t))
+      (while (re-search-forward "^[ \t]*#\\+\\(BEGIN\\|END\\)_[A-Za-z]" nil t)
+        (if (string-equal (upcase (match-string 1)) "BEGIN")
+            (progn
+              (when (zerop profondeur)
+                (setq debut (line-beginning-position)))
+              (setq profondeur (1+ profondeur)))
+          (setq profondeur (max 0 (1- profondeur)))
+          (when (and (zerop profondeur) debut)
+            (push (cons debut (line-end-position)) regions)
+            (setq debut nil))))
+      ;; Bloc ouvert sans #+END_ : on protège jusqu'à la fin du tampon.
+      (when debut (push (cons debut (point-max)) regions))
+      (nreverse regions))))
+
+(defun my/org-dans-un-bloc-p (position regions)
+  "Non-nil si POSITION tombe dans l'une des REGIONS de bloc."
+  (seq-some (lambda (r) (and (>= position (car r)) (<= position (cdr r))))
+            regions))
+
+(defun my/org-fin-de-crochet (debut)
+  "Rend la position suivant le crochet fermant ouvert juste avant DEBUT.
+DEBUT est la position du premier caractère du contenu.  Le comptage est
+équilibré, de sorte qu'un crochet à l'intérieur du contenu ne referme
+rien.  Rend nil si le crochet n'est jamais refermé."
+  (let ((i debut) (profondeur 1) (fin (point-max)))
+    (while (and (< i fin) (> profondeur 0))
+      (pcase (char-after i)
+        (?\[ (setq profondeur (1+ profondeur)))
+        (?\] (setq profondeur (1- profondeur))))
+      (setq i (1+ i)))
+    (and (zerop profondeur) i)))
+
+;;;; HOOKS D'EXPORT
+
+;;;;; Remarques en marge : [rmq:texte] → \RMQ{texte}
+;;
+;; La macro \RMQ du préambule pose la remarque dans la zone d'annotation et
+;; la balise <Aside> pour PDF/UA.  On l'enveloppe dans des extraits d'export
+;; @@latex:…@@ plutôt que d'écrire \RMQ{…} en clair : ainsi le contenu de la
+;; remarque reste du texte Org, et l'emphase, les citations ou les renvois
+;; qu'il porte continuent d'être analysés normalement.
+;;
+;; Le balayage part de la fin du tampon, pour que les remplacements ne
+;; déplacent pas les positions restant à traiter.
+
+(defun my/org-remarques-en-marge (backend)
+  "Convertit les [rmq:texte] en remarques marginales pour les exports LaTeX.
+BACKEND est le backend d'export."
+  (when (org-export-derived-backend-p backend 'latex)
+    (let ((regions (my/org-regions-de-bloc))
+          (occurrences '())
+          (case-fold-search t))
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward "\\[rmq:" nil t)
+          (let ((ouverture (match-beginning 0))
+                (contenu (match-end 0)))
+            (unless (my/org-dans-un-bloc-p ouverture regions)
+              (let ((fermeture (my/org-fin-de-crochet contenu)))
+                (if fermeture
+                    (push (list ouverture contenu fermeture) occurrences)
+                  (message "ATTENTION : [rmq: non refermé à la position %d"
+                           ouverture)))))))
+      ;; De la fin vers le début
+      (dolist (o occurrences)
+        (pcase-let ((`(,ouverture ,contenu ,fermeture) o))
+          (save-excursion
+            (goto-char (1- fermeture))       ; le ] fermant
+            (delete-char 1)
+            (insert "@@latex:}@@")
+            (goto-char ouverture)
+            (delete-region ouverture contenu)
+            (insert "@@latex:\\RMQ{@@")))))))
+
+(add-hook 'org-export-before-parsing-hook #'my/org-remarques-en-marge)
+
+;;;;; Items de flottant : #+DESC:, #+NOTE:, #+SOURCE:, #+ALT_TEXT:
+;;
+;; LES QUATRE MOTS-CLÉS PERSONNELS OUVRENT LA PILE, et ce n'est pas une
+;; préférence de présentation. Org n'attache à un élément que les mots-clés
+;; affiliés qui le précèdent SANS INTERRUPTION ; ceux-ci n'en sont pas. Placés
+;; après #+CAPTION:, ils coupent la chaîne et la figure perd sa légende, son
+;; numéro et son étiquette — c'est ce qui est arrivé aux douze figures le
+;; 8 septembre. Placés en tête, ils ne coupent rien, et le document se compose
+;; correctement même si ce filtre n'a pas tourné : sans les items, mais avec
+;; ses légendes. Une source qui dépend d'un outil doit se dégrader ainsi.
+;;
+;;   #+DESC: Ce que la figure présente, pour dispenser le corps du texte
+;;   #+NOTE: Comment lire le graphique lorsque sa forme n'est pas courante
+;;   #+SOURCE: Fait avec mermaid.js v11, 2026
+;;   #+ALT_TEXT: Description destinée à la synthèse vocale
+;;   #+CAPTION: Cycle de vie d'un acteur virtuel
+;;   #+NAME: fig:acteur-cycle-de-vie
+;;   #+ATTR_LATEX: :placement [htbp] :options width=.8\largeurimpression
+;;   [[../../meta/virtual-actor-lca.drawio]]
+;;
+;; L'ordre des quatre premiers entre eux est libre. Un contrôle
+;; (controles/source.py) refuse toute autre disposition.
+;;
+;; Aucun de ces quatre mots-clés n'est un mot-clé affilié d'Org.  Laissés en
+;; place, ils rompraient la pile du flottant, et #+CAPTION: comme #+NAME:
+;; cesseraient de s'y attacher — le flottant perdrait sa légende, son numéro et
+;; son étiquette, et tout \ref vers lui remonterait au titre de section le plus
+;; proche.  C'est exactement le défaut qu'avait la table 3.1.  On les retire
+;; donc avant l'analyse, et l'on replie leur contenu là où Org l'attend :
+;;
+;;   DESC, NOTE, SOURCE → la légende, sous la forme des macros \descfig,
+;;     \notefig et \srcfig que le préambule relit pour composer la grille ;
+;;   ALT_TEXT → l'attribut alt de #+ATTR_LATEX:, seul endroit d'où graphicx
+;;     le porte jusqu'au balisage PDF/UA.  La ligne #+ATTR_LATEX: est créée si
+;;     elle manque, et l'attribut s'ajoute à un :options déjà présent.
+;;
+;; La légende reçoit au passage une forme courte, afin que la liste des figures
+;; et celle des tableaux portent le seul titre et non les items.
+;;
+;; Deux caractères sont à éviter dans un #+ALT_TEXT: — l'accolade fermante, qui
+;; refermerait alt={…} trop tôt, et un deux-points collé à un mot, qu'Org
+;; prendrait pour le début d'un autre attribut.
+
+(defconst my/org-items-flottants-regexp
+  "^[ \t]*#\\+\\(DESC\\|NOTE\\|SOURCE\\|ALT_TEXT\\):[ \t]*\\(.*?\\)[ \t]*$"
+  "Reconnaît une ligne d'item de flottant et capture son mot-clé et sa valeur.")
+
+(defconst my/org-items-flottants-macros
+  '(("DESC" . "descfig") ("NOTE" . "notefig") ("SOURCE" . "srcfig"))
+  "Macro LaTeX du préambule associée à chaque mot-clé d'item de légende.")
+
+(defun my/org-attr-latex-avec-alt (ligne alt)
+  "Rend LIGNE, un #+ATTR_LATEX:, augmentée de l'attribut alt valant ALT."
+  (if (string-match ":options[ \t]+" ligne)
+      (replace-regexp-in-string
+       ":options[ \t]+\\([^\n]*\\)"
+       (lambda (m) (format ":options %s,alt={%s}"
+                           (match-string 1 m) alt))
+       ligne t t)
+    (concat ligne (format " :options alt={%s}" alt))))
+
+(defun my/org-items-flottants (backend)
+  "Replie les items de flottant là où Org les attend.
+BACKEND est le backend d'export."
+  (when (org-export-derived-backend-p backend 'latex)
+    (save-excursion
+      (goto-char (point-min))
+      (let ((case-fold-search t))
+        (while (re-search-forward "^[ \t]*#\\+" nil t)
+          (beginning-of-line)
+          (let ((debut (point)) (items '()) (caption nil) (court nil))
+            ;; Parcourir la pile de mots-clés contiguë, en s'arrêtant net sur
+            ;; une ligne #+BEGIN_… qui ouvre un bloc.
+            (while (and (looking-at "^[ \t]*#\\+")
+                        (not (looking-at "^[ \t]*#\\+BEGIN_")))
+              (cond
+               ((looking-at my/org-items-flottants-regexp)
+                (push (cons (upcase (match-string 1)) (match-string 2)) items))
+               ((looking-at "^[ \t]*#\\+CAPTION\\(\\[\\(.*\\)\\]\\)?:[ \t]*\\(.*?\\)[ \t]*$")
+                (setq caption (match-string 3)
+                      court (match-string 2))))
+              (forward-line 1))
+            (let ((fin (point))
+                  (alt (cdr (assoc "ALT_TEXT" items))))
+              (cond
+               ;; Aucune ligne consommée — la pile s'ouvrait sur #+BEGIN_.
+               ;; Avancer d'une ligne, faute de quoi la recherche repartirait
+               ;; de la même position et l'export tournerait sans fin.
+               ((= fin debut) (forward-line 1))
+               ((not (or alt (and items caption))) (goto-char fin))
+               (t
+                (let* ((lignes (split-string
+                                (buffer-substring-no-properties debut fin)
+                                "\n" t))
+                       (gardees
+                        (seq-remove (lambda (l) (string-match-p
+                                                 my/org-items-flottants-regexp l))
+                                    lignes))
+                       ;; Le contenu de l'item reste du texte Org : on n'écrit
+                       ;; en LaTeX que l'ouverture et la fermeture de la macro.
+                       (suffixe
+                        (mapconcat
+                         (lambda (paire)
+                           (let ((v (cdr (assoc (car paire) items))))
+                             (if (and v (not (string-empty-p v)))
+                                 (format "@@latex:\\%s{@@%s@@latex:}@@"
+                                         (cdr paire) v)
+                               "")))
+                         my/org-items-flottants-macros ""))
+                       (neuve (and caption
+                                   (format "#+CAPTION[%s]: %s%s"
+                                           (or court caption) caption suffixe))))
+                  ;; La légende, si elle existe et qu'un item la vise
+                  (when (and neuve (not (string-empty-p suffixe)))
+                    (setq gardees
+                          (mapcar (lambda (l)
+                                    (if (string-match-p "^[ \t]*#\\+CAPTION" l)
+                                        neuve l))
+                                  gardees)))
+                  ;; Le texte de remplacement, dans #+ATTR_LATEX: — la
+                  ;; première ligne seulement, une pile pouvant en porter
+                  ;; plusieurs et l'attribut ne devant être écrit qu'une fois.
+                  (when (and alt (not (string-empty-p alt)))
+                    (let ((pose nil))
+                      (setq gardees
+                            (mapcar (lambda (l)
+                                      (if (and (not pose)
+                                               (string-match-p
+                                                "^[ \t]*#\\+ATTR_LATEX:" l))
+                                          (progn (setq pose t)
+                                                 (my/org-attr-latex-avec-alt l alt))
+                                        l))
+                                    gardees))
+                      (unless pose
+                        (setq gardees
+                              (append gardees
+                                      (list (format "#+ATTR_LATEX: :options alt={%s}"
+                                                    alt)))))))
+                  (delete-region debut fin)
+                  (goto-char debut)
+                  (insert (mapconcat #'identity gardees "\n") "\n")))))))))))
+
+(add-hook 'org-export-before-parsing-hook #'my/org-items-flottants)
+
+;;;;; Blocs de tableau
+(defun my/org-unwrap-table-blocks (_backend)
+  "Supprime les blocs #+BEGIN_TABLE / #+END_TABLE avant l'export."
+  (save-excursion
+    (goto-char (point-min))
+    (let ((case-fold-search t))
+      (while (re-search-forward "^[ \t]*#\\+BEGIN_TABLE[ \t]*\n" nil t)
+        (unless (org-in-src-block-p)
+          (replace-match "")))
+      (goto-char (point-min))
+      (while (re-search-forward "^[ \t]*#\\+END_TABLE[ \t]*\n" nil t)
+        (unless (org-in-src-block-p)
+          (replace-match ""))))))
+
+(add-hook 'org-export-before-parsing-hook #'my/org-unwrap-table-blocks)
+
+;;;;; Diagrammes drawio
+(defun my/org-convert-drawio (_backend)
+  "Convert .drawio links to .pdf before export."
+  (when (executable-find "drawio")
+    (save-excursion
+      (goto-char (point-min))
+      (while (re-search-forward "\\[\\[\\([^]]*\\.drawio\\)\\]\\]" nil t)
+        (let* ((drawio-file (match-string 1))
+               (drawio-path (expand-file-name drawio-file))
+               (pdf-path (concat (file-name-sans-extension drawio-path) ".pdf"))
+               (pdf-link (concat (file-name-sans-extension drawio-file) ".pdf")))
+          (when (and (file-exists-p drawio-path)
+                     (or (not (file-exists-p pdf-path))
+                         (time-less-p
+                          (file-attribute-modification-time
+                           (file-attributes pdf-path))
+                          (file-attribute-modification-time
+                           (file-attributes drawio-path)))))
+            (message "Converting %s to PDF..." drawio-file)
+            (let ((code (call-process "timeout" nil "*drawio*" nil "60"
+                          "drawio" "-x" "-f" "pdf" "--crop"
+                          "-o" pdf-path drawio-path)))
+            (unless (eq code 0)
+            (message "ATTENTION : conversion de %s échouée ou expirée (code %s)"
+                          drawio-file code))))
+          (goto-char (match-beginning 0))
+          (delete-region (match-beginning 0) (match-end 0))
+          (insert "[[" pdf-link "]]"))))))
+
+(add-hook 'org-export-before-parsing-hook #'my/org-convert-drawio)
+
+(provide 'my-export-config)
+;;; my-export-config.el ends here 
+
