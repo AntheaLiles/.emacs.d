@@ -2,10 +2,11 @@
 
 [![REUSE](https://github.com/AntheaLiles/.emacs.d/actions/workflows/reuse.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/reuse.yml)
 [![Lint](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml)
+[![Non-régression](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml)
 
 Configuration personnelle d'**Emacs 31.1** (vanilla, sans framework), pensée
 pour la rédaction scientifique : Org-mode, LaTeX (LuaLaTeX, PDF/UA-2),
-bibliographie Zotero/BibLaTeX, prise de notes (howm, org-noter) et
+bibliographie Zotero en CSL-JSON (styles CSL), prise de notes (howm, org-noter) et
 développement léger via Eglot et tree-sitter. Elle tourne principalement sous
 **WSL (Ubuntu)**.
 
@@ -21,9 +22,11 @@ développement léger via Eglot et tree-sitter. Elle tourne principalement sous
 - [Organisation du dépôt](#organisation-du-dépôt)
 - [Séquence de démarrage](#séquence-de-démarrage)
 - [Les modules](#les-modules)
+- [Export PDF/UA](#export-pdfua)
 - [Prérequis](#prérequis)
 - [Installation](#installation)
 - [Adapter à sa machine](#adapter-à-sa-machine)
+- [Télémétrie](#télémétrie)
 - [Ce qui n'est pas versionné](#ce-qui-nest-pas-versionné)
 - [Vérifications locales](#vérifications-locales)
 - [Licences](#licences)
@@ -49,15 +52,19 @@ réorganisée sans adapter ces chemins.
 │   ├── my-appearance.el     Police, curseur, numéros de ligne, titres Org
 │   ├── my-folding.el        Repliement façon Org dans tous les modes
 │   ├── my-formatting.el     Nettoyage / formatage à la sauvegarde manuelle
-│   ├── my-export-config.el  Configuration partagée de l'export Org → PDF
+│   ├── my-babel.el          Langages Babel (session et export asynchrone)
+│   ├── my-export-config.el  Backend d'export « pdfua » (Org → PDF/UA, CSL)
 │   ├── my-export-async.el   Init du processus d'export asynchrone
 │   ├── my-export-ui.el      Journal d'export puis PDF dans une fenêtre latérale
 │   ├── my-citar-noter.el    Pont citar ↔ org-noter
-│   └── my-deps.el           Vérificateur asynchrone des dépendances système
+│   └── my-deps.el           Vérificateur des dépendances système (M-x my/deps-check)
 ├── latex/                 Configuration LaTeX utilisée par l'export Org
-│   ├── preamble-article.tex     Préambule LuaLaTeX PDF/UA-2 (classe « article »)
+│   ├── preamble-common.tex      Préambule LuaLaTeX PDF/UA-2 commun
+│   ├── preamble-article-ua.tex  Classe « article-ua » (recto seul)
+│   ├── preamble-book-ua.tex     Classe « book-ua » (recto verso, sections sur page impaire)
 │   ├── old-preamble-article.tex Version précédente, conservée pour comparaison
-│   └── latexmkrc                Réglages latexmk (LuaLaTeX, SyncTeX)
+│   └── latexmkrc                Réglages latexmk (LuaLaTeX, SyncTeX, run.xml)
+├── csl/                   Style CSL personnel et locale française
 ├── perf/                  Télémétrie de performance à long terme
 │   ├── perf-start.el        Collecteur (chargé depuis early-init.el)
 │   ├── perf-self-test.el    Test ERT de non-régression du collecteur
@@ -65,8 +72,8 @@ réorganisée sans adapter ces chemins.
 ├── scripts/check.el       Vérifications statiques (parenthèses, compilation)
 ├── scripts/bench-latex.sh Mesure du temps de compilation LaTeX (variantes)
 ├── docs/                  Audit et documentation complémentaire
-├── tests/                 Tests ERT (export Org : code en ligne)
-├── Makefile               `make check` : REUSE + lint + test ERT
+├── tests/                 Tests ERT (export, modules) et banc de non-régression
+├── Makefile               `make check` : REUSE + lint + tests ERT ; `make regress`
 ├── LICENSES/              Textes intégraux des licences (REUSE)
 ├── REUSE.toml             Licences des fichiers sans en-tête SPDX
 ├── .github/               CI (REUSE, lint Lisp), gabarits, Dependabot
@@ -80,26 +87,29 @@ vocation à être versionnés dès qu'ils contiennent des fichiers.
 
 ## Séquence de démarrage
 
-1. **`early-init.el`** — charge le collecteur `perf/perf-start.el`, suspend le
-   ramasse-miettes et `file-name-handler-alist`, bloque le rendu, configure la
-   compilation native (cache dans `eln-cache/`), désactive `package.el` et
-   supprime barres de menu/outils avant l'affichage de la première frame.
+1. **`early-init.el`** — charge le collecteur `perf/perf-start.el` **s'il est
+   activé** (voir [Télémétrie](#télémétrie)), suspend le ramasse-miettes et
+   `file-name-handler-alist`, déclare `lisp/` comme `user-lisp-directory`
+   (Emacs 31 : compilation et autoloads automatiques des modules), configure
+   la compilation native, désactive `package.el` et supprime barres de
+   menu/outils avant l'affichage de la première frame.
 2. **`init.el`** — amorce **Elpaca** (clonage automatique au premier
    lancement), active `elpaca-use-package`, puis charge les modules de `lisp/`
    dans l'ordre : `my-paths` → `my-performance` → `my-editing` → `my-windows`
    → `my-appearance` → `my-folding` → `my-formatting` → `my-export-ui`.
 3. **Paquets** — déclarés via `use-package` (différés par défaut) :
-   `compile-angel` (compilation à la volée), `gcmh`, `doom-themes`,
-   `mood-line`, pile de complétion (`vertico`, `orderless`, `marginalia`,
+   thème `modus-vivendi` (intégré, `<f5>` bascule clair/sombre), mode line
+   native, pile de complétion (`vertico`, `orderless`, `marginalia`,
    `consult`, `embark`, `corfu`, `cape`), `magit`, `diff-hl`, Eglot et
    tree-sitter, Org et son écosystème (`org-appear`, `org-glossary`,
-   `olivetti`, `citar`, `howm`, `org-noter`), AUCTeX, `cdlatex`, `pdf-tools`.
+   `olivetti`, `citar`, `howm`, `org-noter`), AUCTeX, `cdlatex`, `pdf-tools`,
+   `lean4-mode` (via Eglot et `lake serve`).
 4. **`elpaca-after-init-hook`** — charge `custom.el` s'il existe et affiche la
    durée de démarrage.
 
 Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 `lisp/my-export-async.el`, qui reconstruit le `load-path` depuis
-`elpaca/builds/` puis charge `my-paths` et `my-export-config`.
+`elpaca/builds/` puis charge `my-paths`, `my-babel` et `my-export-config`.
 
 ## Les modules
 
@@ -108,13 +118,50 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 | `my-paths` | Définit tous les chemins externes (`~/wiki`, bibliographie, CSL, Zotero), ajoute Node (nvm) au `PATH` et le dossier `tree-sitter/`. | À adapter sur toute nouvelle machine. |
 | `my-performance` | Rendu, bidi, lecture des processus, avertissements de compilation. | — |
 | `my-editing` | UTF-8, kill-ring, sauvegardes numérotées dans `backups/`, auto-save dans `auto-save/`, hunspell fr/en. | Dictionnaire personnel attendu dans `ispell-personal`. Auto-correction sur `C-M-;` (`C-.`/`C-;` restent à Embark). |
-| `my-windows` | Séparateurs, défilement conservatif, défilement pixel. | Conseils (`advice`) sur `mwheel-scroll`. |
-| `my-appearance` | Police JetBrains Mono Nerd, numéros de ligne, `hl-line`, puces et tailles de titres Org. | — |
-| `my-folding` | `TAB` / `S-TAB` à la Org dans les modes de programmation, LaTeX et Markdown. | Org lui-même est exclu. |
+| `my-windows` | Séparateurs, défilement conservatif, défilement pixel. | — |
+| `my-appearance` | Thème modus, mode line native, police JetBrains Mono Nerd, numéros de ligne, `hl-line`, titres Org. | `<f5>` : clair / sombre. |
+| `my-folding` | Repliement natif d'Emacs 31 : `TAB` sur un titre, `S-TAB` global, blocs par `C-c z b` et indicateurs en frange. | `TAB` **indente** hors des titres. Org est exclu. |
 | `my-formatting` | Supprime les blancs finaux et formate via Eglot **uniquement** lors d'un `C-x C-s`. | Ignore les sauvegardes automatiques. |
-| `my-export-*` | Pipeline Org → LuaLaTeX → PDF (latexmk, `engrave-faces`, BibLaTeX) et affichage du PDF. | Utilise `latex/preamble-article.tex`. |
+| `my-babel` | Langages Babel (Emacs Lisp, Python, R, shell, calc, Lua), partagés avec l'export asynchrone. | — |
+| `my-export-*` | Backend `pdfua` : Org → LuaLaTeX → PDF/UA (latexmk, `engrave-faces`, CSL) et affichage du PDF. | Menu `C-c C-e u`. |
 | `my-citar-noter` | Ouvre le PDF d'une référence et lance org-noter. | `C-c n P`. |
-| `my-deps` | Vérifie les exécutables et fichiers requis, avec cache BLAKE3. | Désactivé dans `init.el` (lignes commentées). |
+| `my-deps` | Vérifie à la demande exécutables, fichiers, paquets LaTeX et polices. | `M-x my/deps-check`. |
+
+## Export PDF/UA
+
+L'export passe par un backend dérivé de `latex`, **`pdfua`**, qui laisse
+l'export LaTeX standard (`C-c C-e l`) intact :
+
+| Touche | Action |
+| --- | --- |
+| `C-c C-e u l` | fichier `.tex` |
+| `C-c C-e u p` | PDF |
+| `C-c C-e u o` | PDF, puis ouverture |
+| `C-c C-e u d` | PDF **brouillon** : sans balisage PDF/UA, plus rapide |
+
+Deux classes, choisies par `#+LATEX_CLASS:` :
+
+| Classe | Mise en page |
+| --- | --- |
+| `article-ua` (défaut) | recto seul, sections enchaînées |
+| `book-ua` | recto verso, chaque section commence sur une page impaire |
+
+Balisages propres à cette configuration, conservés : remarques en marge
+`[rmq:…]`, éléments de flottant `#+DESC:`, `#+NOTE:`, `#+SOURCE:`,
+conversion automatique des `.drawio` en PDF, titres `:ignore:`.
+
+### Bibliographie
+
+Les citations passent par **CSL** (`oc-csl`, paquet `citeproc`) avec le style
+personnel `csl/iso-ieee-localised-collapsed.csl` : pas de biber, deux passes
+LuaLaTeX. Chaque section de premier niveau reçoit sa propre bibliographie
+(`#+PRINT_BIBLIOGRAPHY:` dans la section).
+
+- **Org** lit `~/wiki/00.resources/references.json`, exporté par Zotero au
+  format *Better CSL JSON* (Better BibTeX, « Garder à jour »).
+- **AUCTeX / RefTeX** gardent `references.bib`, synchronisé de la même façon.
+
+Sans `citeproc`, l'export reste possible avec le processeur `basic`.
 
 ## Code en ligne à l'export PDF
 
@@ -127,7 +174,8 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 
 Le fond grisé vient de la macro `\CodeInline` du préambule (paquet `lua-ul`,
 LuaLaTeX) : le code reste sécable en fin de ligne. Sa couleur se règle via
-`fondcodeenligne` dans `latex/preamble-article.tex`.
+`fondcodeenligne` dans `latex/preamble-common.tex`. `lua-ul` n'est chargé que
+si le document contient du code en ligne.
 
 > [!IMPORTANT]
 > Par défaut, Org **exécute** les blocs `src_…` à l'export et n'en imprime que
@@ -141,16 +189,18 @@ LuaLaTeX) : le code reste sécable en fin de ligne. Sa couleur se règle via
   `markdown-ts-mode`, `treesit-auto-install-grammar`, `user-lisp-auto-scrape`).
 - **Git** (Elpaca, Magit).
 - **hunspell** avec `hunspell-fr` et `hunspell-en-us`.
-- **Chaîne LaTeX** : `lualatex`, `latexmk`, `biber` (TeX Live complet
-  recommandé) ; outils de compilation d'AUCTeX (`autoconf`, `make`).
+- **Chaîne LaTeX** : `lualatex`, `latexmk` (TeX Live complet recommandé) ;
+  outils de compilation d'AUCTeX (`autoconf`, `make`). biber n'est plus
+  nécessaire.
 - **Recherche** : `ripgrep` (`rg`), `fd` (`fdfind` sous Debian/Ubuntu).
-- **Facultatifs** : `b3sum`, `emacs-lsp-booster`, serveurs de langage
+- **Facultatifs** : `emacs-lsp-booster`, serveurs de langage
   (`bash-language-server`, `yaml-language-server`,
-  `typescript-language-server`, `perlnavigator`, `lean`), `drawio`.
+  `typescript-language-server`, `perlnavigator`), Lean 4 (`elan`, `lake`),
+  `drawio`.
 - **Police** : *JetBrainsMonoNL Nerd Font Propo*.
 
-`M-x my/deps-check` (après `(require 'my-deps)`) liste ce qui manque avec la
-commande d'installation correspondante.
+`M-x my/deps-check` liste ce qui manque avec la commande d'installation
+correspondante.
 
 ## Installation
 
@@ -190,7 +240,8 @@ Tous les chemins externes sont centralisés dans **`lisp/my-paths.el`** :
 | --- | --- |
 | `my/wiki-path` | `~/wiki` |
 | `my/resources-path` | `~/wiki/00.resources` |
-| `my/bibliography-files` | `…/00.resources/references.bib` |
+| `my/bibliography-files` | `…/00.resources/references.json` (CSL-JSON, Org) |
+| `my/bibtex-files` | `…/00.resources/references.bib` (AUCTeX, RefTeX) |
 | `my/zotero-storage` | `/mnt/c/Users/CPIERRE/Documents/My Library/storage` (WSL) |
 | `my/glossary-file` | `…/00.resources/glossary.org` |
 | `my/notes-path` | `…/00.resources/notes` |
@@ -199,6 +250,14 @@ Tous les chemins externes sont centralisés dans **`lisp/my-paths.el`** :
 
 Les réglages faits via `M-x customize` sont écrits dans `custom.el`, qui n'est
 pas versionné.
+
+## Télémétrie
+
+Le collecteur `perf/perf-start.el` n'est chargé que sur demande :
+
+```sh
+touch ~/.emacs.d/perf/enabled     # ou EMACS_PERF=1 emacs
+```
 
 ## Ce qui n'est pas versionné
 
@@ -225,10 +284,11 @@ make check    # = make reuse lint test
 | --- | --- | --- |
 | `reuse` | `reuse lint` | Conformité REUSE de chaque fichier. |
 | `lint` | `emacs -Q --batch -l scripts/check.el` | Parenthèses de tous les `.el`, compilation à octets des modules (dans un dossier temporaire). |
-| `test` | ERT sur `perf/perf-self-test.el` et `tests/` | Non-régression du collecteur de télémétrie et de l'export Org. |
+| `test` | ERT sur `perf/perf-self-test.el` et `tests/` | Collecteur de télémétrie, export Org, modules (repliement, dépendances, init). |
+| `regress` | `tests/regression/run.sh` | Export réel d'un document d'essai en `article-ua`, `book-ua` et brouillon, compilé par LuaLaTeX. Hors de `make check` : requiert TeX Live. |
 
 La CI GitHub exécute les mêmes vérifications à chaque push (Emacs 31.1 et
-snapshot).
+snapshot), ainsi que le banc de non-régression (Emacs 31.1).
 
 ## Audit
 
@@ -246,7 +306,8 @@ fichier déclare son titulaire et sa licence.
 | --- | --- |
 | Code Emacs Lisp (`*.el`) | [LGPL-3.0-or-later](LICENSES/LGPL-3.0-or-later.txt) |
 | Documentation (`*.md`) | [GFDL-1.3-or-later](LICENSES/GFDL-1.3-or-later.txt) |
-| Configuration LaTeX (`latex/`) | [CC-BY-SA-4.0](LICENSES/CC-BY-SA-4.0.txt) |
+| Configuration LaTeX (`latex/`), style CSL | [CC-BY-SA-4.0](LICENSES/CC-BY-SA-4.0.txt) |
+| Locale CSL française (`csl/locales/`) | [CC-BY-SA-3.0](LICENSES/CC-BY-SA-3.0.txt) |
 | Métadonnées et outillage du dépôt | [CC0-1.0](LICENSES/CC0-1.0.txt) |
 
 Le détail et le fonctionnement de REUSE sont expliqués dans

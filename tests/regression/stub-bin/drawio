@@ -1,0 +1,9 @@
+#!/bin/sh
+# SPDX-FileCopyrightText: 2026 AntheaLiles
+# SPDX-License-Identifier: CC0-1.0
+#
+# Simulacre de drawio pour le banc : drawio -x -f pdf --crop -o SORTIE ENTRÉE
+# Écrit une image PDF d'exemple (paquet mwe) à la place du diagramme.
+out=""
+while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift;; esac; shift; done
+cp "$(kpsewhich example-image-b.pdf)" "$out"

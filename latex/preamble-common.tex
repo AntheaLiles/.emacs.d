@@ -1,8 +1,15 @@
 % SPDX-FileCopyrightText: 2026 AntheaLiles
 % SPDX-License-Identifier: CC-BY-SA-4.0
 % ==============================================================================
-% preamble-article.tex — Préambule LuaLaTeX PDF/UA-2 haute performance pour Org-mode
-% Requis dans le manuscrit Org : défini via org-latex-classes dans Emacs
+% preamble-common.tex — Préambule LuaLaTeX PDF/UA-2 commun aux classes Org
+% article-ua et book-ua (voir lisp/my-export-config.el).
+%
+% Ne s'utilise pas seul : preamble-article-ua.tex ou preamble-book-ua.tex
+% déclarent d'abord \ifrectoverso, puis chargent ce fichier.
+%   article-ua : recto seul, zone d'annotation toujours à droite, sections
+%                enchaînées sans saut de page ;
+%   book-ua    : recto verso, zone d'annotation côté extérieur, chaque
+%                section commence sur une page impaire (\cleardoublepage).
 % ==============================================================================
 
 %%% 01. Outils de base & Langue
@@ -29,7 +36,10 @@
   \setlength{\largeurimpression}{\dimexpr\textwidth+\ecartannotation+\zoneannotation\relax}%
   \setlength{\debordementannotation}{\dimexpr\ecartannotation+\zoneannotation\relax}}
 
-\usepackage[a4paper, twoside,
+% Recto verso pour book-ua seulement ; en recto seul, geometry lit inner et
+% outer comme gauche et droite : la zone d'annotation reste à droite.
+\ifrectoverso\PassOptionsToPackage{twoside}{geometry}\fi
+\usepackage[a4paper,
             top=3.2cm, bottom=3.2cm, inner=2.4cm, outer=2.4cm,
             marginparwidth=\zoneannotation, marginparsep=\ecartannotation,
             includemp]{geometry}
@@ -332,11 +342,17 @@
 % pour src_LANG, la coloration syntaxique vient d'engrave-faces.
 % lua-ul surligne sans enfermer le texte dans une boîte : le code reste
 % sécable en fin de ligne, contrairement à \colorbox ou \tcbox.
-\usepackage{luacolor} % requis par \highLight
-\usepackage{lua-ul}
-\definecolor{fondcodeenligne}{gray}{0.92}
-\NewDocumentCommand{\CodeInline}{m}{%
-  {\ttfamily\highLight[fondcodeenligne]{\kern.15em#1\kern.15em}}}
+% lua-ul et luacolor coûtent ~0,35 s par passe : l'export ne définit
+% \uacodeinline que si le document contient du code en ligne.
+\ifdefined\uacodeinline
+  \usepackage{luacolor} % requis par \highLight
+  \usepackage{lua-ul}
+  \definecolor{fondcodeenligne}{gray}{0.92}
+  \NewDocumentCommand{\CodeInline}{m}{%
+    {\ttfamily\highLight[fondcodeenligne]{\kern.15em#1\kern.15em}}}
+\else
+  \NewDocumentCommand{\CodeInline}{m}{{\ttfamily#1}}
+\fi
 % Signets PDF : voir \pdfstringdefDisableCommands après hyperref.
 
 %%% 07. Factorisation des listes & Messages de repli
@@ -370,6 +386,7 @@
 % MÉMO UTILISATION ORG-MODE :
 %   - Remarque marginale : \RMQ{Texte de la note en marge} (balisée sémantiquement en <Aside>)
 %   - Bibliographie      : #+print_bibliography: :heading subbibliography
+%                          (références citées dans la section, titre « Références »)
 %
 \usepackage[toc,page]{appendix}
 \usepackage{marginnote}
@@ -387,29 +404,11 @@
   \tagstructend%
   \textsuperscript{\textsf{R\thermq}}}
 
-\usepackage[
-  bibstyle=iso-numeric,
-  citestyle=numeric-comp,
-  doi=true,
-  isbn=false,
-  mincrossrefs=2,
-  sorting=none,
-  sortcites=true,
-  autolang=other,
-  backend=biber]{biblatex}
-%
-% refsection=section retiré le 8 septembre. L'option demandait à biblatex de
-% rustiner \@startsection, \@sect et \@ssect au \begin{document} pour ouvrir
-% une refsection à chaque titre. Les trois rustines échouaient, titletoc (§ 10)
-% ayant déjà redéfini ces trois macros — trois erreurs à chaque compilation :
-%
-%     Package biblatex Error: Patching \@startsection failed.
-%
-% L'option était de surcroît sans emploi : le crochet du § 10 ouvre déjà la
-% refsection à la main, et c'est lui qui donne aux sous-bibliographies leur
-% segment. Retirer l'option ne change donc rien au rendu, et rend le journal
-% de compilation lisible.
-\renewcommand*{\bibfont}{\scriptsize}
+% Bibliographie : style CSL, composé par Org (org-cite, processeur csl) dans
+% l'environnement cslbibliography ; plus de biblatex ni de biber.  Une
+% bibliographie par section est obtenue par filtrage à l'export (voir
+% my/pdfua-bibliographies-par-section).
+\newenvironment{bibliographieua}{\par\scriptsize}{\par}
 
 %%% 09. Environnements Mathématiques & Théorèmes
 %
@@ -445,8 +444,9 @@
 \usepackage{lastpage}
 \fancyfoot[C]{\thepage\ / \pageref{LastPage}}
 
-% Rupture de page et nouvelle section biblio via hook officiel (compatible balisage PDF/UA)
-\AddToHook{cmd/section/before}{\cleardoublepage\newrefsection}
+% book-ua : chaque section commence sur une page impaire (hook officiel,
+% compatible balisage PDF/UA).  article-ua : sections enchaînées.
+\ifrectoverso\AddToHook{cmd/section/before}{\cleardoublepage}\fi
 
 \usepackage{titletoc}
 \titlecontents{subsection}[1.5em]{\small}{\contentslabel{2.3em}}{\hspace*{-2.3em}}{\titlerule*[1pc]{.}\contentspage}

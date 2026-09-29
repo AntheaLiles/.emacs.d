@@ -35,11 +35,12 @@
       bidi-inhibit-bpa t)
 
 ;;;; PROCESSUS EXTERNES
-(setq read-process-output-max (* 4 1024 1024)
-      process-adaptive-read-buffering nil)
+;; (`process-adaptive-read-buffering' vaut nil par défaut depuis Emacs 31.)
+(setq read-process-output-max (* 4 1024 1024))
 
 ;;;; COMPILATION
-(setq byte-compile-warnings '(not obsolete))
+;; Avertissements d'obsolescence conservés : les masquer avait caché les API
+;; retirées dans Emacs 31 (when-let, hs-looking-at-block-start-p…).
 (setopt compilation-scroll-output t)
 
 ;;;; VERSION CONTROL — limiter aux backends utilisés

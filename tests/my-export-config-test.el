@@ -6,10 +6,11 @@
 ;; This file is not part of GNU Emacs.
 
 ;;; Commentary:
-;; Vérifie l'export du code en ligne (section CODE EN LIGNE de
-;; lisp/my-export-config.el).  Aucun paquet externe requis : sans
-;; engrave-faces, les blocs en ligne passent par le repli verbatim, que le
-;; filtre traite de la même façon.
+;; Tests du backend d'export `pdfua' (lisp/my-export-config.el) et de
+;; l'affichage de fin d'export (lisp/my-export-ui.el).  Aucun paquet
+;; externe requis : sans engrave-faces, les blocs en ligne passent par le
+;; repli verbatim ; sans citeproc, les bibliographies par section sont
+;; vérifiées au niveau du filtre de pré-analyse.
 ;;
 ;; Usage, depuis la racine du dépôt :
 ;;   emacs -Q --batch -L lisp -l tests/my-export-config-test.el \
@@ -21,53 +22,185 @@
 (require 'ox-latex)
 
 ;; Pas d'écriture dans ~/.emacs.d réel, pas de nvm ni de wiki requis.
-(let ((user-emacs-directory
-       (file-name-as-directory
-        (expand-file-name ".." (file-name-directory
-                                (or load-file-name buffer-file-name))))))
-  (require 'my-paths)
-  (require 'my-export-config))
+(defconst my/test--root
+  (file-name-as-directory
+   (expand-file-name ".." (file-name-directory
+                           (or load-file-name buffer-file-name))))
+  "Root of the repository.")
 
-(defun my/test--latex-body (org)
-  "Export ORG, a string, to a LaTeX body."
+(let ((user-emacs-directory my/test--root))
+  (require 'my-paths)
+  (require 'my-export-config)
+  (require 'my-export-ui))
+
+(defun my/test--body (org &optional backend)
+  "Export ORG, a string, to a LaTeX body with BACKEND (default `pdfua')."
   (let ((org-export-with-toc nil))
-    (org-export-string-as org 'latex t)))
+    (org-export-string-as org (or backend 'pdfua) t)))
+
+;;;; Backend et classes
+
+(ert-deftest my/export-classes-article-ua-book-ua ()
+  "Both PDF/UA classes exist, and Org's own article class is untouched."
+  (dolist (variant '("article" "book"))
+    (let* ((class (assoc (concat variant "-ua") org-latex-classes))
+           (preamble (expand-file-name (format "latex/preamble-%s-ua.tex" variant)
+                                       my/test--root)))
+      (should class)
+      (should (string-match-p (regexp-quote preamble) (nth 1 class)))
+      (should (string-match-p "pdfstandard=ua-2" (nth 1 class)))
+      (should (file-exists-p preamble))))
+  (should-not (string-match-p "preamble" (nth 1 (assoc "article" org-latex-classes)))))
+
+(ert-deftest my/export-default-class-is-article-ua ()
+  "A PDF/UA export without #+LATEX_CLASS uses article-ua."
+  (let ((out (org-export-string-as "Texte." 'pdfua)))
+    (should (string-match-p "preamble-article-ua\\.tex" out)))
+  (let ((out (org-export-string-as "#+LATEX_CLASS: book-ua\nTexte." 'pdfua)))
+    (should (string-match-p "preamble-book-ua\\.tex" out))))
+
+(ert-deftest my/export-standard-latex-untouched ()
+  "The standard LaTeX backend keeps Org's rendering: no PDF/UA filter."
+  (let ((out (my/test--body "Voir ~a b~ et [rmq:note]." 'latex))
+        (case-fold-search nil))
+    (should (string-match-p (regexp-quote "\\texttt{a b}") out))
+    (should-not (string-match-p "CodeInline\\|RMQ" out))))
+
+(ert-deftest my/export-pdf-process-safe ()
+  "latexmk runs without -shell-escape nor -f, with the repository latexmkrc."
+  (let ((cmd (car org-latex-pdf-process)))
+    (should-not (string-match-p "shell-escape" cmd))
+    (should-not (string-match-p " -f\\b" cmd))
+    (should (string-match-p (regexp-quote my/latexmkrc-file) cmd))))
+
+;;;; Code en ligne
 
 (ert-deftest my/export-inline-code-markup ()
   "~code~ is wrapped in \\CodeInline, with explicit spaces."
-  (let ((out (my/test--latex-body "Voir ~a b~ ici.")))
+  (let ((out (my/test--body "Voir ~a b~ ici.")))
     (should (string-match-p (regexp-quote "\\CodeInline{a\\ b} ici") out))
     (should-not (string-match-p "texttt" out))))
 
 (ert-deftest my/export-inline-code-escapes ()
   "Special TeX characters stay escaped inside \\CodeInline."
-  (let ((out (my/test--latex-body "~50% & x_1~")))
+  (let ((out (my/test--body "~50% & x_1~")))
     (should (string-match-p (regexp-quote "\\CodeInline{50\\%\\ \\&\\ x\\_1}")
                             out))))
 
 (ert-deftest my/export-inline-code-in-title ()
-  "Titles, exported through an anonymous backend, are covered too."
-  (let ((out (my/test--latex-body "* Titre ~f~\nTexte.")))
+  "Titles, exported through an anonymous backend, are covered too.
+Regression: since Org 9.7 that backend's parent is itself a structure."
+  (let ((out (my/test--body "* Titre ~f~\nTexte.")))
     (should (string-match-p (regexp-quote "\\section{Titre \\CodeInline{f}}")
                             out))))
 
-(ert-deftest my/export-inline-code-nested-anonymous-backend ()
-  "The filter accepts anonymous backends whose parent is a structure.
-Regression: Org 9.7 exports titles through such a backend, on which
-`org-export-derived-backend-p' signals `wrong-type-argument'."
-  (let* ((section (org-export-create-backend :parent 'latex))
-         (nested (org-export-create-backend :parent section))
-         (html (org-export-create-backend :parent 'html)))
-    (should (my/org-export--latex-backend-p nested))
-    (should (my/org-export--latex-backend-p 'latex))
-    (should-not (my/org-export--latex-backend-p html))
-    (should-not (my/org-export--latex-backend-p nil))
-    (should (equal (my/org-latex-inline-code "\\texttt{f} " nil
-                                             (list :back-end nested))
-                   "\\CodeInline{f} "))
-    (should (equal (my/org-latex-inline-code "\\texttt{f}" nil
-                                             (list :back-end html))
-                   "\\texttt{f}"))))
+(ert-deftest my/export-verbatim-untouched ()
+  "=verbatim= keeps the plain monospace rendering."
+  (let ((out (my/test--body "=v=")))
+    (should (string-match-p (regexp-quote "\\texttt{v}") out))
+    (should-not (string-match-p "CodeInline" out))))
+
+(ert-deftest my/export-inline-src-shows-code ()
+  "Inline source blocks export their code and are not evaluated."
+  (let* ((org-confirm-babel-evaluate nil)
+         (out (my/test--body "Calcul src_emacs-lisp{(+ 1 2)} fin.")))
+    (should (string-match-p "CodeInline" out))
+    (should (string-match-p (regexp-quote "(+") out))
+    (should-not (string-match-p "{3}" out))))
+
+(ert-deftest my/export-inline-src-results-on-request ()
+  "An explicit :exports results still evaluates the block."
+  (let* ((org-confirm-babel-evaluate nil)
+         (out (my/test--body
+               "Calcul src_emacs-lisp[:exports results]{(+ 1 2)} fin.")))
+    (should (string-match-p "3" out))
+    (should-not (string-match-p (regexp-quote "(+") out))))
+
+;;;; Sortie finale
+
+(ert-deftest my/export-lua-ul-only-with-inline-code ()
+  "\\uacodeinline, which makes the preamble load lua-ul, is declared only
+when the document contains inline code."
+  (should (string-match-p "^\\\\def\\\\uacodeinline{}"
+                          (org-export-string-as "Voir ~x~." 'pdfua)))
+  (should-not (string-match-p "uacodeinline"
+                              (org-export-string-as "Sans code." 'pdfua))))
+
+(ert-deftest my/export-draft-drops-tagging ()
+  "The draft profile removes PDF/UA tagging from \\DocumentMetadata."
+  (let ((final (org-export-string-as "Texte." 'pdfua nil nil))
+        (draft (org-export-string-as "Texte." 'pdfua nil '(:ua-draft t))))
+    (should (string-match-p "testphase=phase-III" final))
+    (should (string-match-p "pdfstandard=ua-2" final))
+    (should-not (string-match-p "testphase\\|pdfstandard" draft))
+    (should (string-match-p "\\\\DocumentMetadata{lang=fr,pdfversion=2.0}" draft))))
+
+(ert-deftest my/export-graphics-width-kept ()
+  "A width given in :options is not overridden by Org's default width.
+Regression, present in the original configuration."
+  (should (equal (my/pdfua--dedupe-graphics-width
+                  "\\includegraphics[width=.8\\linewidth,alt={A, B},width=.9\\linewidth]{x}")
+                 "\\includegraphics[width=.8\\linewidth,alt={A, B}]{x}"))
+  (should (equal (my/pdfua--dedupe-graphics-width "\\includegraphics[width=\\largeurimpression]{y}")
+                 "\\includegraphics[width=\\largeurimpression]{y}")))
+
+(ert-deftest my/export-single-space-before-citation ()
+  "A space followed by the style's non-breaking space collapses into one."
+  (should (equal (my/pdfua-final-output "texte  [1] fin" 'pdfua nil)
+                 "texte [1] fin")))
+
+;;;; Bibliographies par section (CSL)
+
+(defun my/test--run-bib-filter (org)
+  "Run the per-section bibliography filter on ORG; return the new text."
+  (with-temp-buffer
+    (insert org)
+    (my/pdfua-bibliographies-par-section 'pdfua)
+    (buffer-string)))
+
+(ert-deftest my/export-bibliographies-par-section ()
+  "Each section's bibliography keeps only the keys cited in that section."
+  (let* ((out (my/test--run-bib-filter
+               (concat "* Un\nVoir [cite:@a;@b] et [cite/t:@c].\n"
+                       "#+print_bibliography: :heading subbibliography\n"
+                       "* Deux\nVoir [cite:@a].\n#+print_bibliography:\n")))
+         (fns (let (acc (pos 0))
+                (while (string-match ":filter \\([^ \n]+\\)" out pos)
+                  (push (intern (match-string 1 out)) acc)
+                  (setq pos (match-end 0)))
+                (nreverse acc))))
+    (should (= (length fns) 2))
+    (should (funcall (nth 0 fns) '((id . "b"))))
+    (should (funcall (nth 0 fns) '((id . "c"))))
+    (should-not (funcall (nth 1 fns) '((id . "b"))))
+    (should (funcall (nth 1 fns) '((id . "a"))))
+    ;; Titre seulement avec :heading ; environnement toujours
+    (should (= 1 (cl-count-if (lambda (l) (string-match-p "subsection\\*{\\\\refname}" l))
+                              (split-string out "\n"))))
+    (should (= 2 (cl-count-if (lambda (l) (string-match-p "begin{bibliographieua}" l))
+                              (split-string out "\n"))))
+    (should (= 2 (cl-count-if (lambda (l) (string-match-p "end{bibliographieua}" l))
+                              (split-string out "\n"))))))
+
+(ert-deftest my/export-bibliographies-other-backends-untouched ()
+  "The per-section filter only acts for the PDF/UA backend."
+  (with-temp-buffer
+    (insert "* Un\n[cite:@a]\n#+print_bibliography:\n")
+    (my/pdfua-bibliographies-par-section 'html)
+    (should (equal (buffer-string) "* Un\n[cite:@a]\n#+print_bibliography:\n"))))
+
+(ert-deftest my/export-csl-configuration ()
+  "Citations go through the versioned CSL style, from CSL-JSON.
+Without citeproc, the basic processor keeps exports working."
+  (should (equal org-cite-export-processors
+                 (if my/csl-available-p
+                     `((t csl ,my/csl-style-file))
+                   '((t basic)))))
+  (should (file-exists-p my/csl-style-file))
+  (should (string-suffix-p ".json" (car org-cite-global-bibliography)))
+  (should (file-exists-p (expand-file-name "locales/locales-fr-FR.xml" my/csl-dir))))
+
+;;;; Filtres de pré-analyse
 
 (ert-deftest my/export-drawio-links-rewritten ()
   "Converted .drawio links point to the PDF and keep their form.
@@ -99,27 +232,65 @@ into [[x.pdf]], which Org reads as an internal link."
           (should (file-exists-p (expand-file-name "b.pdf" dir))))
       (delete-directory dir t))))
 
-(ert-deftest my/export-verbatim-untouched ()
-  "=verbatim= keeps the plain monospace rendering."
-  (let ((out (my/test--latex-body "=v=")))
-    (should (string-match-p (regexp-quote "\\texttt{v}") out))
-    (should-not (string-match-p "CodeInline" out))))
+(ert-deftest my/export-remarques-en-marge ()
+  "[rmq:…] becomes \\RMQ outside blocks, and stays literal inside them."
+  (let ((out (my/test--body
+              (concat "Texte [rmq:note avec *gras*].\n"
+                      "#+begin_src emacs-lisp\n;; [rmq:littéral]\n#+end_src\n"))))
+    ;; Emphase en fin de remarque : rendue (défaut de la configuration
+    ;; d'origine, où Org la laissait littérale devant « @@latex: »).
+    (should (string-match-p (regexp-quote "\\RMQ{note avec \\textbf{gras} }") out))
+    (should (string-match-p (regexp-quote ";; [rmq:littéral]") out))))
 
-(ert-deftest my/export-inline-src-shows-code ()
-  "Inline source blocks export their code and are not evaluated."
-  (let* ((org-confirm-babel-evaluate nil)
-         (out (my/test--latex-body "Calcul src_emacs-lisp{(+ 1 2)} fin.")))
-    (should (string-match-p "CodeInline" out))
-    (should (string-match-p (regexp-quote "(+") out))
-    (should-not (string-match-p "{3}" out))))
+(ert-deftest my/export-items-flottant-emphase-finale ()
+  "An emphasis closing a #+DESC: value is rendered too."
+  (let ((out (my/test--body "#+DESC: très *important*\n#+CAPTION: T\n[[./x.png]]\n")))
+    (should (string-match-p (regexp-quote "\\descfig{très \\textbf{important} }") out))))
 
-(ert-deftest my/export-inline-src-results-on-request ()
-  "An explicit :exports results still evaluates the block."
-  (let* ((org-confirm-babel-evaluate nil)
-         (out (my/test--latex-body
-               "Calcul src_emacs-lisp[:exports results]{(+ 1 2)} fin.")))
-    (should (string-match-p "3" out))
-    (should-not (string-match-p (regexp-quote "(+") out))))
+(ert-deftest my/export-items-flottant ()
+  "#+DESC/#+NOTE/#+SOURCE/#+ALT_TEXT fold into the caption and alt text."
+  (let ((out (my/test--body
+              (concat "#+DESC: Ce qui est présenté\n#+SOURCE: Origine\n"
+                      "#+ALT_TEXT: Texte alternatif\n#+CAPTION: Titre\n"
+                      "#+NAME: fig:x\n[[./x.png]]\n"))))
+    (should (string-match-p (regexp-quote "\\descfig{Ce qui est présenté}") out))
+    (should (string-match-p (regexp-quote "\\srcfig{Origine}") out))
+    (should (string-match-p (regexp-quote "alt={Texte alternatif}") out))
+    (should (string-match-p (regexp-quote "\\caption[Titre]") out))))
+
+(ert-deftest my/export-ignore-headlines ()
+  "Headlines tagged :ignore: vanish, their contents stay; consecutive ones too."
+  (let ((out (my/test--body "* A :ignore:\nun\n* B :ignore:\ndeux\n* C\ntrois\n")))
+    (should-not (string-match-p "section{A}\\|section{B}" out))
+    (should (string-match-p "un" out))
+    (should (string-match-p "deux" out))
+    (should (string-match-p "section{C}" out))))
+
+;;;; Affichage de fin d'export
+
+(ert-deftest my/export-ui-follows-stack ()
+  "The UI reacts to the three stages reported through the export stack."
+  (let* ((pdf (expand-file-name "doc.pdf" temporary-file-directory))
+         (my/export-pdf-file pdf)
+         (my/export-window nil)
+         (buf (generate-new-buffer " *test export*")))
+    (unwind-protect
+        (progn
+          ;; Lancement : le suivi continue
+          (let ((p (start-process "t" nil "sleep" "10")))
+            (my/export-ui-on-stack buf nil p)
+            (delete-process p))
+          (should my/export-pdf-file)
+          ;; Succès : le suivi s'arrête
+          (my/export-ui-on-stack pdf 'pdfua)
+          (should-not my/export-pdf-file)
+          ;; Échec : le suivi s'arrête aussi
+          (setq my/export-pdf-file pdf)
+          (let ((p (start-process "f" nil "false")))
+            (while (process-live-p p) (accept-process-output p 0.05))
+            (my/export-ui-on-stack buf nil p))
+          (should-not my/export-pdf-file))
+      (kill-buffer buf))))
 
 (provide 'my-export-config-test)
 ;;; my-export-config-test.el ends here

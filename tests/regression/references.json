@@ -1,0 +1,7 @@
+[
+  {"id": "dupont2020", "type": "article-journal", "author": [{"family": "Dupont", "given": "Jean"}], "title": "Un article", "container-title": "Revue", "issued": {"date-parts": [[2020]]}, "DOI": "10.1/a"},
+  {"id": "martin2019", "type": "book", "author": [{"family": "Martin", "given": "Anne"}], "title": "Un livre", "publisher": "Éditeur", "publisher-place": "Paris", "issued": {"date-parts": [[2019]]}},
+  {"id": "a2021", "type": "paper-conference", "author": [{"family": "Bernard", "given": "Luc"}], "editor": [{"family": "Durand", "given": "Paul"}], "title": "Communication A", "container-title": "Actes du colloque", "publisher": "Presses", "page": "1-10", "issued": {"date-parts": [[2021]]}},
+  {"id": "b2021", "type": "paper-conference", "author": [{"family": "Petit", "given": "Zoé"}], "editor": [{"family": "Durand", "given": "Paul"}], "title": "Communication B", "container-title": "Actes du colloque", "publisher": "Presses", "page": "11-20", "issued": {"date-parts": [[2021]]}},
+  {"id": "noncite", "type": "article-journal", "author": [{"family": "Personne", "given": "Aucune"}], "title": "Citée seulement en section 3", "container-title": "X", "issued": {"date-parts": [[2000]]}}
+]

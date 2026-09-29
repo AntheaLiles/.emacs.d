@@ -35,6 +35,8 @@ path = [
   ".claude/settings.json",
   ".claude/commands/**",
   "ispell-personal",  # dictionnaire personnel hunspell (lisp/my-editing.el)
+  "tests/regression/essai.org",        # document d'essai du banc
+  "tests/regression/references.json",  # références fictives du banc
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 AntheaLiles"
@@ -51,3 +53,23 @@ SPDX-License-Identifier = "LGPL-3.0-or-later"
 # À compléter au cas par cas lors de l'ajout d'une image : les logos de
 # tiers (ex. ORCID iD) relèvent de leurs propres conditions et doivent
 # être déclarés ici avec leur titulaire réel.
+
+# --- Style et locale CSL -----------------------------------------------------
+# Style : adaptation du style IEEE du dépôt CSL de Zotero (CC BY-SA 3.0),
+# distribuée sous CC BY-SA 4.0, version ultérieure de la même licence comme
+# le permet son article 4(b).  Locale française du projet CSL : inchangée,
+# CC BY-SA 3.0.
+[[annotations]]
+path = "csl/iso-ieee-localised-collapsed.csl"
+precedence = "override"
+SPDX-FileCopyrightText = [
+  "Michael Berkowitz, Julian Onions, Rintze Zelle, Stephen Frank, Sebastian Karcher, Giuseppe Silano, Patrick O'Brien, Brenton M. Wiernik, Oliver Couch",
+  "2026 Cyprien Pierre",
+]
+SPDX-License-Identifier = "CC-BY-SA-4.0"
+
+[[annotations]]
+path = "csl/locales/**"
+precedence = "override"
+SPDX-FileCopyrightText = "Citation Style Language project contributors"
+SPDX-License-Identifier = "CC-BY-SA-3.0"
