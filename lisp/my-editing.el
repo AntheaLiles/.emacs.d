@@ -86,13 +86,18 @@
 ;;;; FLYSPELL
 ;; Backend : hunspell (multi-dictionnaire, meilleur support UTF-8 que aspell)
 ;; Dictionnaires requis : hunspell-fr (français), hunspell-en-us (anglais)
-;; Vérification : M-x my/check-system-deps signalera si hunspell est absent
+;; Vérification : M-x my/deps-check (lisp/my-deps.el) signale un hunspell absent
 ;;
 ;; Workflow :
 ;;   - Erreurs soulignées automatiquement pendant la frappe
-;;   - C-; : correction du mot au curseur (flyspell-correct-wrapper)
-;;   - C-c $ : correction du mot au curseur (flyspell natif)
+;;   - C-c $   : corriger le mot au curseur (menu de suggestions)
+;;   - C-M-;   : corriger automatiquement le mot mal orthographié précédent
+;;   - C-,     : aller à l'erreur suivante
 ;;   - M-x flyspell-buffer : vérifier le buffer entier
+;;
+;; C-. et C-; sont rendus à Embark (embark-act / embark-dwim, init.el) :
+;; flyspell les prenait dans son keymap, qui masquait les raccourcis globaux
+;; dans tous les buffers où il est actif, c'est-à-dire partout.
 ;;   - Dictionnaire personnel dans ~/.emacs.d/ispell-personal (versionné)
 
 (with-eval-after-load 'ispell
@@ -117,19 +122,25 @@
             ispell-personal-dictionary
             (expand-file-name "ispell-personal" user-emacs-directory))))
 
-;; Flyspell en mode texte (Org, Markdown, etc.)
-(dolist (hook '(text-mode-hook
-               org-mode-hook
-               markdown-mode-hook))
-  (add-hook hook #'flyspell-mode))
+;; Flyspell en mode texte.  Org, markdown-ts-mode et LaTeX-mode (AUCTeX)
+;; dérivent tous de `text-mode' : un seul hook les couvre.
+(add-hook 'text-mode-hook #'flyspell-mode)
+
+;; Keymap de flyspell, modifié ci-dessous après son chargement
+(defvar flyspell-mode-map)
+(declare-function flyspell-auto-correct-previous-word "flyspell" (position))
 
 ;; Flyspell-prog en mode programmation (vérifie commentaires + strings)
 (add-hook 'prog-mode-hook #'flyspell-prog-mode)
 
-;; Performance flyspell : ne pas vérifier les blocs source Org
+;; Messages de flyspell
 (with-eval-after-load 'flyspell
   (setopt flyspell-issue-message-flag nil    ; pas de message par mot vérifié
-          flyspell-issue-welcome-flag nil))   ; pas de message au démarrage
+          flyspell-issue-welcome-flag nil)   ; pas de message au démarrage
+  ;; Libérer C-. et C-; pour Embark, déplacer l'auto-correction sur C-M-;
+  (keymap-unset flyspell-mode-map "C-." t)
+  (keymap-unset flyspell-mode-map "C-;" t)
+  (keymap-set flyspell-mode-map "C-M-;" #'flyspell-auto-correct-previous-word))
 
 (provide 'my-editing)
 ;;; my-editing.el ends here

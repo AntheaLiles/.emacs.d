@@ -104,13 +104,13 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 | --- | --- | --- |
 | `my-paths` | Définit tous les chemins externes (`~/wiki`, bibliographie, CSL, Zotero), ajoute Node (nvm) au `PATH` et le dossier `tree-sitter/`. | À adapter sur toute nouvelle machine. |
 | `my-performance` | Rendu, bidi, lecture des processus, avertissements de compilation. | — |
-| `my-editing` | UTF-8, kill-ring, sauvegardes numérotées dans `backups/`, auto-save dans `auto-save/`, hunspell fr/en. | Dictionnaire personnel attendu dans `ispell-personal`. |
+| `my-editing` | UTF-8, kill-ring, sauvegardes numérotées dans `backups/`, auto-save dans `auto-save/`, hunspell fr/en. | Dictionnaire personnel attendu dans `ispell-personal`. Auto-correction sur `C-M-;` (`C-.`/`C-;` restent à Embark). |
 | `my-windows` | Séparateurs, défilement conservatif, défilement pixel. | Conseils (`advice`) sur `mwheel-scroll`. |
 | `my-appearance` | Police JetBrains Mono Nerd, numéros de ligne, `hl-line`, puces et tailles de titres Org. | — |
 | `my-folding` | `TAB` / `S-TAB` à la Org dans les modes de programmation, LaTeX et Markdown. | Org lui-même est exclu. |
 | `my-formatting` | Supprime les blancs finaux et formate via Eglot **uniquement** lors d'un `C-x C-s`. | Ignore les sauvegardes automatiques. |
 | `my-export-*` | Pipeline Org → LuaLaTeX → PDF (latexmk, `engrave-faces`, BibLaTeX) et affichage du PDF. | Utilise `latex/preamble-article.tex`. |
-| `my-citar-noter` | Ouvre le PDF d'une référence et lance org-noter. | — |
+| `my-citar-noter` | Ouvre le PDF d'une référence et lance org-noter. | `C-c n P`. |
 | `my-deps` | Vérifie les exécutables et fichiers requis, avec cache BLAKE3. | Désactivé dans `init.el` (lignes commentées). |
 
 ## Prérequis

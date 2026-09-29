@@ -16,15 +16,35 @@
 
 ;;; Code:
 
+;;;; FICHIERS LATEX DU DÉPÔT
+;; Dérivés de `user-emacs-directory' : aucun chemin ~/.emacs.d en dur.
+(defconst my/latex-dir (expand-file-name "latex/" user-emacs-directory)
+  "Directory holding the LaTeX preamble and latexmk configuration.")
+
+(defconst my/latex-preamble-file
+  (expand-file-name "preamble-article.tex" my/latex-dir)
+  "LaTeX preamble inserted by the \"article\" export class.")
+
+(defconst my/latexmkrc-file (expand-file-name "latexmkrc" my/latex-dir)
+  "Configuration file passed to latexmk with -r.")
+
 ;;;; PIPELINE LUALATEX
 (setopt org-latex-compiler "lualatex"
         org-latex-pdf-process
-        '("latexmk -lualatex -shell-escape -interaction=nonstopmode -f -output-directory=%o -r ~/.emacs.d/latex/latexmkrc %f")
+        (list (concat "latexmk -lualatex -shell-escape -interaction=nonstopmode"
+                      " -f -output-directory=%o -r "
+                      (shell-quote-argument my/latexmkrc-file)
+                      " %f"))
         org-latex-prefer-user-labels t)
 
 ;;;; BACKEND ENGRAVED
-(setopt org-latex-src-block-backend 'engraved
-        org-latex-engraved-options
+;; Repli sur verbatim si engrave-faces est absent (processus asynchrone lancé
+;; avant l'installation du paquet, par exemple) : sinon l'export échoue.
+(if (locate-library "engrave-faces-latex")
+    (setopt org-latex-src-block-backend 'engraved)
+  (message "ATTENTION : engrave-faces-latex absent — rendu verbatim des blocs")
+  (setopt org-latex-src-block-backend 'verbatim))
+(setopt org-latex-engraved-options
         '(("commandchars" . "\\\\\\{\\}")
           ("fontsize" . "\\small")))
 
@@ -42,14 +62,14 @@
 
 ;;;; CLASSES LATEX
 (add-to-list 'org-latex-classes
-             '("article"
-               "\\DocumentMetadata{lang=fr,pdfversion=2.0,pdfstandard=ua-2,
+             `("article"
+               ,(concat "\\DocumentMetadata{lang=fr,pdfversion=2.0,pdfstandard=ua-2,
                                    testphase=phase-III}
                 \\documentclass[a4paper,11pt]{article}
-                \\input{~/.emacs.d/latex/preamble-article.tex}
+                \\input{" my/latex-preamble-file "}
                [NO-DEFAULT-PACKAGES]
                [PACKAGES]
-               [EXTRA]"
+               [EXTRA]")
                ("\\section{%s}" . "\\section*{%s}")
                ("\\subsection{%s}" . "\\subsection*{%s}")
                ("\\subsubsection{%s}" . "\\subsubsection*{%s}")
@@ -69,13 +89,35 @@
 ;;   2. Le ralentissement à l'ouverture (blocs exécutés prématurément)
 (setopt org-confirm-babel-evaluate t)
 
-(defun my/org-babel-confirm-off-for-export (backend)
+(defun my/org-babel-confirm-off-for-export (_backend)
   "Disable babel confirmation during export.
-BACKEND is the export backend (unused but required by the hook)."
+_BACKEND is the export backend (unused but required by the hook)."
   (setq-local org-confirm-babel-evaluate nil))
 
-(add-hook 'org-export-before-processing-hook
+(add-hook 'org-export-before-processing-functions
           #'my/org-babel-confirm-off-for-export)
+
+;;;; TITRES :ignore:
+;; Définition unique, partagée par Emacs et par le processus d'export
+;; asynchrone (autrefois dupliquée dans init.el et my-export-async.el,
+;; la copie d'init.el supprimant en avançant et sautant des titres).
+
+(defun my/org-export-ignore-headlines (_backend)
+  "Remove headlines tagged :ignore: but keep their contents.
+Positions are collected first, then deleted from the end of the buffer
+backwards, so that earlier deletions never shift later positions."
+  (org-with-wide-buffer
+   (let (positions)
+     (org-map-entries
+      (lambda ()
+        (when (member "ignore" (org-get-tags nil t))
+          (push (point) positions))))
+     (dolist (p (sort positions #'>))
+       (goto-char p)
+       (delete-region (line-beginning-position) (line-beginning-position 2))))))
+
+(add-hook 'org-export-before-processing-functions
+          #'my/org-export-ignore-headlines)
 
 ;;;; OUTILLAGE COMMUN AUX FILTRES DE PRÉ-ANALYSE
 ;;
@@ -168,7 +210,7 @@ BACKEND est le backend d'export."
             (delete-region ouverture contenu)
             (insert "@@latex:\\RMQ{@@")))))))
 
-(add-hook 'org-export-before-parsing-hook #'my/org-remarques-en-marge)
+(add-hook 'org-export-before-parsing-functions #'my/org-remarques-en-marge)
 
 ;;;;; Items de flottant : #+DESC:, #+NOTE:, #+SOURCE:, #+ALT_TEXT:
 ;;
@@ -312,7 +354,7 @@ BACKEND est le backend d'export."
                   (goto-char debut)
                   (insert (mapconcat #'identity gardees "\n") "\n")))))))))))
 
-(add-hook 'org-export-before-parsing-hook #'my/org-items-flottants)
+(add-hook 'org-export-before-parsing-functions #'my/org-items-flottants)
 
 ;;;;; Blocs de tableau
 (defun my/org-unwrap-table-blocks (_backend)
@@ -328,7 +370,7 @@ BACKEND est le backend d'export."
         (unless (org-in-src-block-p)
           (replace-match ""))))))
 
-(add-hook 'org-export-before-parsing-hook #'my/org-unwrap-table-blocks)
+(add-hook 'org-export-before-parsing-functions #'my/org-unwrap-table-blocks)
 
 ;;;;; Diagrammes drawio
 (defun my/org-convert-drawio (_backend)
@@ -336,8 +378,13 @@ BACKEND est le backend d'export."
   (when (executable-find "drawio")
     (save-excursion
       (goto-char (point-min))
-      (while (re-search-forward "\\[\\[\\([^]]*\\.drawio\\)\\]\\]" nil t)
-        (let* ((drawio-file (match-string 1))
+      (while (re-search-forward
+              "\\[\\[\\(?:file:\\)?\\([^]]*\\.drawio\\)\\]\\]" nil t)
+        ;; Positions relevées tout de suite : les appels qui suivent
+        ;; (processus externe, messages) peuvent écraser les données de match.
+        (let* ((link-beg (match-beginning 0))
+               (link-end (match-end 0))
+               (drawio-file (match-string 1))
                (drawio-path (expand-file-name drawio-file))
                (pdf-path (concat (file-name-sans-extension drawio-path) ".pdf"))
                (pdf-link (concat (file-name-sans-extension drawio-file) ".pdf")))
@@ -350,16 +397,16 @@ BACKEND est le backend d'export."
                            (file-attributes drawio-path)))))
             (message "Converting %s to PDF..." drawio-file)
             (let ((code (call-process "timeout" nil "*drawio*" nil "60"
-                          "drawio" "-x" "-f" "pdf" "--crop"
-                          "-o" pdf-path drawio-path)))
-            (unless (eq code 0)
-            (message "ATTENTION : conversion de %s échouée ou expirée (code %s)"
-                          drawio-file code))))
-          (goto-char (match-beginning 0))
-          (delete-region (match-beginning 0) (match-end 0))
+                                      "drawio" "-x" "-f" "pdf" "--crop"
+                                      "-o" pdf-path drawio-path)))
+              (unless (eq code 0)
+                (message "ATTENTION : conversion de %s échouée ou expirée (code %s)"
+                         drawio-file code))))
+          (goto-char link-beg)
+          (delete-region link-beg link-end)
           (insert "[[" pdf-link "]]"))))))
 
-(add-hook 'org-export-before-parsing-hook #'my/org-convert-drawio)
+(add-hook 'org-export-before-parsing-functions #'my/org-convert-drawio)
 
 (provide 'my-export-config)
 ;;; my-export-config.el ends here 

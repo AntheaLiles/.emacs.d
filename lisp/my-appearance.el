@@ -21,7 +21,7 @@
       (message "Font '%s' not found, using default" font))))
 
 ;;;; LINE NUMBERING
-;; prog-mode : relatifs | org/markdown/tex : absolus | autres : aucun
+;; prog-mode : relatifs | org/markdown/LaTeX : absolus | autres : aucun
 (defun my/enable-relative-line-numbers ()
   "Enable relative line numbers for programming modes."
   (setq-local display-line-numbers 'relative))
@@ -31,9 +31,11 @@
   (setq-local display-line-numbers t))
 
 (add-hook 'prog-mode-hook #'my/enable-relative-line-numbers)
+;; Hooks des modes réellement utilisés : markdown-ts-mode (natif, Emacs 31)
+;; et LaTeX-mode (AUCTeX), pas markdown-mode ni le latex-mode d'Emacs.
 (dolist (hook '(org-mode-hook
-               markdown-mode-hook
-               latex-mode-hook))
+               markdown-ts-mode-hook
+               LaTeX-mode-hook))
   (add-hook hook #'my/enable-absolute-line-numbers))
 
 ;;;; SHOW-PAREN

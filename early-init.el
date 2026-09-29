@@ -18,6 +18,17 @@
 (setq gc-cons-threshold most-positive-fixnum
       gc-cons-percentage 0.6)
 
+;; …et rétabli après le boot.  gcmh (init.el) ne gère que le seuil : sans
+;; ceci, `gc-cons-percentage' resterait à 0.6 toute la session (un GC
+;; seulement après une allocation de 60 % du tas, d'où de longues pauses),
+;; et le seuil resterait infini si gcmh ne se chargeait pas (premier
+;; lancement, échec d'Elpaca).  gcmh, une fois actif, reprend la main.
+(add-hook 'emacs-startup-hook
+          (lambda ()
+            (setq gc-cons-percentage 0.1)
+            (unless (bound-and-true-p gcmh-mode)
+              (setq gc-cons-threshold (* 16 1024 1024)))))
+
 ;; file-name-handler-alist — vidé pendant le boot
 (defvar my/file-name-handler-alist-backup file-name-handler-alist
   "Sauvegarde de `file-name-handler-alist' pour restauration post-boot.")

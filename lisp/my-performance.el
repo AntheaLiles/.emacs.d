@@ -23,8 +23,12 @@
       highlight-nonselected-windows nil
       cursor-in-non-selected-windows nil
       inhibit-compacting-font-caches t
-      redisplay-skip-fontification-on-input t
-      idle-update-delay 1.0)
+      redisplay-skip-fontification-on-input t)
+
+;; `idle-update-delay' est obsolète depuis Emacs 30.1 ; il ne servait qu'à
+;; which-func, dont c'est désormais la variable propre.
+(with-eval-after-load 'which-func
+  (setopt which-func-update-delay 1.0))
 
 ;;;; BIDI
 (setq bidi-paragraph-direction 'left-to-right

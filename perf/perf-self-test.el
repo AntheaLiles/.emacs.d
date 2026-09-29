@@ -10,6 +10,18 @@
 
 (require 'ert)
 
+;; Variables et fonctions du collecteur (perf-start.el).  Le `defvar' rend
+;; `my/perf-root' dynamique ici aussi : sans lui, le `let' du test ci-dessous
+;; serait lexical et ne redirigerait aucune écriture.
+(defvar my/perf-root)
+(defvar my/perf--active)
+(defvar my/perf--io-disabled)
+(defvar my/perf--command-start-time)
+(defvar my/perf--command-symbol)
+(declare-function my/perf--flush-buffer "perf-start" (file buffer))
+(declare-function my/perf--pre-command "perf-start" ())
+(declare-function my/perf--post-command "perf-start" ())
+
 (ert-deftest my/perf-flush-never-touches-current-user-buffer ()
   "Flushing telemetry must not read from or erase the current user buffer."
   (should (fboundp 'my/perf--flush-buffer))
@@ -37,6 +49,29 @@
       (when (buffer-live-p telemetry)
         (kill-buffer telemetry))
       (delete-directory root t))))
+
+(ert-deftest my/perf-hook-functions-are-top-level ()
+  "Hook functions must be defined as soon as perf-start.el is loaded.
+Regression: a misplaced parenthesis once nested them inside
+`my/perf--post-command', so `post-gc-hook' signalled `void-function'
+until the first interactive command, and each command redefined them."
+  (dolist (fn '(my/perf--post-command
+                my/perf--post-gc
+                my/perf--snapshot-allocation
+                my/perf--snapshot-system
+                my/perf--system-descendants))
+    (should (fboundp fn))))
+
+(ert-deftest my/perf-post-command-resets-state ()
+  "`my/perf--post-command' must clear the per-command state it consumed."
+  (let ((my/perf--active t)
+        (my/perf--io-disabled t)        ; aucune écriture sur disque
+        (this-command 'ignore))
+    (my/perf--pre-command)
+    (should my/perf--command-start-time)
+    (my/perf--post-command)
+    (should-not my/perf--command-start-time)
+    (should-not my/perf--command-symbol)))
 
 (provide 'perf-self-test)
 ;;; perf-self-test.el ends here

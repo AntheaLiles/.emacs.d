@@ -56,6 +56,18 @@
     ;; Optionnels
     ("emacs-lsp-booster" "emacs-lsp-booster" nil "Eglot JSON x3-10"
      "cargo install emacs-lsp-booster")
+    ;; Serveurs de langage déclarés dans init.el (eglot-server-programs)
+    ("bash-language-server" "bash-language-server" nil "Eglot — Bash"
+     "npm install -g bash-language-server")
+    ("yaml-language-server" "yaml-language-server" nil "Eglot — YAML"
+     "npm install -g yaml-language-server")
+    ("typescript-language-server" "typescript-language-server" nil
+     "Eglot — TypeScript / web-mode"
+     "npm install -g typescript-language-server typescript")
+    ("perlnavigator" "perlnavigator" nil "Eglot — Perl"
+     "npm install -g perlnavigator-server")
+    ("Lean" "lean" nil "Eglot — Lean"
+     "curl https://elan.lean-lang.org/elan-init.sh -sSf | sh")
     ("drawio"    "drawio"    nil "Conversion .drawio → .pdf"
      "snap install drawio"))
   "Static binary dependencies. (NAME EXEC REQUIRED USAGE INSTALL).")
@@ -75,8 +87,8 @@
     ;; Optionnels
     ("ORCID icon"       ,(expand-file-name "assets/ORCID-iD-icon-BW-16x16.png"
                                             user-emacs-directory) nil)
-    ("Bibliographie"    ,(expand-file-name "~/wiki/00.resources/references.bib")
-     nil)
+    ,@(mapcar (lambda (f) (list "Bibliographie" f nil))
+              my/bibliography-files)
     ("Glossaire"        ,my/glossary-file nil))
   "File dependencies. (DESC PATH REQUIRED).")
 
@@ -159,18 +171,11 @@ Falls back to MD5 if b3sum is unavailable."
   (message "Dependency cache cleared."))
 
 ;;;; EXTRACTION DYNAMIQUE
-(defun my/deps--extract-lsp-servers ()
-  "Extract LSP server binaries from `eglot-server-programs'."
-  (when (boundp 'eglot-server-programs)
-    (cl-loop for (mode . cmd) in eglot-server-programs
-             for exec = (pcase cmd
-                          ((pred stringp) cmd)
-                          (`(,(pred stringp) . ,_) (car cmd))
-                          (_ nil))
-             when (and exec (not (equal exec "eglot-lsp-server")))
-             collect (list (format "LSP: %s" exec) exec nil
-                           (format "LSP pour %s" mode)
-                           (format "Installer %s" exec)))))
+;; Les serveurs LSP ne sont plus extraits de `eglot-server-programs' : cette
+;; liste contient des dizaines de serveurs par défaut (tous signalés comme
+;; manquants, le rapport n'était donc jamais vide), et elle n'existe pas
+;; dans le processus de vérification asynchrone (emacs -Q).  Ceux que la
+;; configuration utilise sont déclarés dans `my/deps-binaries'.
 
 (defun my/deps--extract-latex-packages ()
   "Extract \\usepackage names from preamble-article.tex."
@@ -197,7 +202,8 @@ Falls back to MD5 if b3sum is unavailable."
                          "\\\\set\\(?:main\\|mono\\|math\\)font{\\([^}]+\\)}"
                          nil t)
                   collect (match-string 1))))
-     (list "JetBrainsMonoNL NFP"))))
+     ;; Même nom de famille que lisp/my-appearance.el
+     (list "JetBrainsMonoNL Nerd Font Propo"))))
 
 ;;;; VÉRIFICATION
 (defun my/deps--check-binaries (deps)
@@ -209,7 +215,8 @@ Falls back to MD5 if b3sum is unavailable."
            finally return (list required optional)))
 
 (defun my/deps--check-latex-packages (packages)
-  "Check PACKAGES via kpsewhich. Returns list of missing."
+  "Check PACKAGES via kpsewhich. Returns list of missing.
+Return nil when kpsewhich is absent: TeX itself is then reported missing."
   (when (executable-find "kpsewhich")
     (cl-remove-if
      (lambda (pkg)
@@ -217,22 +224,25 @@ Falls back to MD5 if b3sum is unavailable."
      packages)))
 
 (defun my/deps--check-fonts (fonts)
-  "Check FONTS availability. Returns list of missing."
+  "Check FONTS availability. Returns list of missing.
+Font families need fc-list; when it is absent, families are not checked."
   (cl-remove-if
    (lambda (font)
      (if (string-match "\\.\\(otf\\|ttf\\)$" font)
          ;; Fichier — kpsewhich ou répertoires système
-         (or (= 0 (call-process "kpsewhich" nil nil nil font))
+         (or (and (executable-find "kpsewhich")
+                  (= 0 (call-process "kpsewhich" nil nil nil font)))
              (cl-some (lambda (d) (file-exists-p (expand-file-name font d)))
                       '("~/.local/share/fonts/"
                         "/usr/share/fonts/"
                         "/usr/local/share/fonts/")))
-       ;; Famille — fc-list stdout
-       (not (string-empty-p
+       ;; Famille — fc-list stdout (considérée présente si fc-list manque)
+       (or (not (executable-find "fc-list"))
+           (not (string-empty-p
              (string-trim
               (with-temp-buffer
                 (call-process "fc-list" nil t nil (concat ":family=" font))
-                (buffer-string)))))))
+                (buffer-string))))))))
    fonts))
 
 (defun my/deps--check-files (deps)
@@ -245,8 +255,7 @@ Falls back to MD5 if b3sum is unavailable."
 
 (defun my/deps--run-all-checks ()
   "Run all dependency checks. Returns a plist of results."
-  (let* ((all-bins (append my/deps-binaries (my/deps--extract-lsp-servers)))
-         (bin-res  (my/deps--check-binaries all-bins))
+  (let* ((bin-res  (my/deps--check-binaries my/deps-binaries))
          (file-res (my/deps--check-files my/deps-files)))
     (list :missing-req-bin   (car bin-res)
           :missing-opt-bin   (cadr bin-res)

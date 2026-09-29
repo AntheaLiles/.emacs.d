@@ -29,14 +29,21 @@
   "Advice to show log in right window then switch to PDF.
 Only activates for async exports with sufficient window width."
   (let* ((org-file (buffer-file-name))
-         (pdf-file (concat (file-name-sans-extension org-file) ".pdf")))
+         (pdf-file (and org-file
+                        (concat (file-name-sans-extension org-file) ".pdf"))))
     (setq my/export-pdf-file pdf-file)
-    (if (and org-export-in-background
+    ;; Buffer sans fichier : pas de PDF à suivre, comportement Org standard.
+    (if (and pdf-file
+             org-export-in-background
              (> (window-total-width) 120))
         (progn
           (setq my/export-window (split-window-right))
           (apply orig-fun args)
           (run-with-timer 1 nil #'my/show-export-log-right)
+          ;; Un export relancé avant la fin du précédent ne doit pas
+          ;; laisser tourner l'ancien minuteur indéfiniment.
+          (when (timerp my/export-watch-timer)
+            (cancel-timer my/export-watch-timer))
           (setq my/export-watch-timer
                 (run-with-timer 2 2 #'my/watch-export-process)))
       (apply orig-fun args))))

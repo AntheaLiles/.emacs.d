@@ -177,7 +177,7 @@ are never read from or erased by the flush operation."
 
 (defun my/perf--flush-file (file)
   "Flush the buffer associated with FILE."
-  (when-let ((entry (cl-find file my/perf--buffers
+  (when-let* ((entry (cl-find file my/perf--buffers
                              :key #'car :test #'equal)))
     (my/perf--flush-buffer file (cdr entry))))
 
@@ -334,7 +334,7 @@ are never read from or erased by the flush operation."
          "error"
          ""
          ""
-         (error-message-string err))))
+         (error-message-string err)))))
     (setq my/perf--command-start-time nil
           my/perf--command-start-cpu nil
           my/perf--command-symbol nil
@@ -397,13 +397,13 @@ are never read from or erased by the flush operation."
       (nth 1 load)
       (nth 2 load)
       (and (consp mem) (nth 0 mem))
-      (and (consp mem) (nth 1 mem)))))))
+      (and (consp mem) (nth 1 mem))))))
 
 (defun my/perf--system-descendants (root attrs-table)
   "Return ROOT and all descendants represented in ATTRS-TABLE."
   (let ((result nil))
     (maphash
-     (lambda (pid attrs)
+     (lambda (pid _attrs)
        (let ((current pid)
              (seen (make-hash-table :test #'eql))
              (belongs nil))
@@ -429,15 +429,15 @@ are never read from or erased by the flush operation."
          (attrs-table (make-hash-table :test #'eql))
          (emacs-objects (make-hash-table :test #'eql)))
     (dolist (pid pids)
-      (when-let ((attrs (let ((default-directory user-emacs-directory))
+      (when-let* ((attrs (let ((default-directory user-emacs-directory))
                           (ignore-errors (process-attributes pid)))))
         (puthash pid attrs attrs-table)))
     (dolist (process (process-list))
-      (when-let ((pid (and (processp process)
+      (when-let* ((pid (and (processp process)
                            (ignore-errors (process-id process)))))
         (puthash pid process emacs-objects)))
     (dolist (pid (my/perf--system-descendants root attrs-table))
-      (when-let ((attrs (gethash pid attrs-table)))
+      (when-let* ((attrs (gethash pid attrs-table)))
         (let* ((proc (gethash pid emacs-objects))
                (source (if proc "emacs+system" "system"))
                (role (if (= pid root) "emacs-root" "descendant")))
