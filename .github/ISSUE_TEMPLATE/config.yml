@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Signaler une vulnérabilité
+    url: https://github.com/AntheaLiles/.emacs.d/security/advisories/new
+    about: Signalement privé — voir SECURITY.md.
+  - name: Politique de contribution
+    url: https://github.com/AntheaLiles/.emacs.d/blob/main/CONTRIBUTING.md
+    about: Les contributions extérieures ne sont pas acceptées pour l'instant.

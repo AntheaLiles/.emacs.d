@@ -1,0 +1,26 @@
+# SPDX-FileCopyrightText: 2026 AntheaLiles
+# SPDX-License-Identifier: CC0-1.0
+
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 2
+
+[*.{el,tex}]
+max_line_length = 80
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.tsv]
+indent_style = tab
+trim_trailing_whitespace = false
+
+[snippets/**]
+insert_final_newline = false
+trim_trailing_whitespace = false

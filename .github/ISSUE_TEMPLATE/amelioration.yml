@@ -1,0 +1,23 @@
+name: Amélioration
+description: Consigner une idée d'amélioration ou de fiabilisation (usage interne).
+title: "feat: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: objectif
+    attributes:
+      label: Objectif
+      description: Ce qu'on veut obtenir et pourquoi.
+    validations:
+      required: true
+  - type: textarea
+    id: piste
+    attributes:
+      label: Piste de mise en œuvre
+  - type: checkboxes
+    id: verifs
+    attributes:
+      label: Points de contrôle
+      options:
+        - label: Impact sur le temps de démarrage évalué
+        - label: CHANGELOG.md à mettre à jour
