@@ -120,7 +120,8 @@ for cls in article-ua book-ua; do
     bash -c "grep -q 'CodeInline{x\\\\_1' '$T' && grep -q '^\\\\def\\\\uacodeinline{}' '$T'"
   check "Babel : calcul Python exécuté" grep -q 'Calcul : \\texttt{42}' "$T"
   check "deux bibliographies, titrées" test "$(grep -c 'begin{bibliographieua}' "$T")" = 2
-  check "citations CSL [n]" grep -q '\[\\citeprocitem' "$T"
+  # Org ≤ 9.7 : \citeprocitem ; Org 9.8 (Emacs 31) : \cslcitation
+  check "citations CSL [n]" grep -Eq '\[\\(citeprocitem|cslcitation)\{' "$T"
   check "bibliographie de la section 3 : seulement ses références" \
     bash -c "sed -n '/Dans cette section/,\$p' '$T' | grep -q 'Citée seulement en section 3' \
              && ! sed -n '/Dans cette section/,\$p' '$T' | grep -q 'Communication A'"

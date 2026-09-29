@@ -130,12 +130,13 @@
 (ert-deftest my/folding-tab-indents-inside-code ()
   "TAB keeps indenting on a line that opens a block (Emacs 31).
 Regression: TAB folded any line opening a block, i.e. nearly every
-Lisp line, instead of indenting it."
+Lisp line, instead of indenting it.  The line is indented: in Emacs
+Lisp, a \"(\" in column 0 starts an outline heading."
   (skip-unless (boundp 'hs-cycle-filter))
   (with-temp-buffer
     (emacs-lisp-mode)
     (my/folding-mode 1)
-    (insert "(defun f ()\n(let ((x 1))\nx))\n")
+    (insert "(defun f ()\n  (let ((x 1))\n    x))\n")
     (goto-char (point-min))
     (forward-line 1)
     (should (eq (key-binding (kbd "TAB")) #'indent-for-tab-command))
