@@ -1,0 +1,123 @@
+# SPDX-FileCopyrightText: 2026 AntheaLiles
+# SPDX-License-Identifier: CC0-1.0
+#
+# Principe : ce dépôt ne versionne que ce qui est ÉCRIT À LA MAIN.
+# Tout ce qu'Emacs, ses paquets ou les outils externes régénèrent
+# (caches, historiques, compilations, paquets téléchargés, états de
+# session, données de télémétrie) reste local à la machine.
+
+# ---------------------------------------------------------------------------
+# Gestionnaires de paquets (reconstruits au premier démarrage)
+# ---------------------------------------------------------------------------
+/elpaca/
+/elpa/
+/straight/
+/quelpa/
+
+# ---------------------------------------------------------------------------
+# Compilation (byte-code, native-comp)
+# ---------------------------------------------------------------------------
+*.elc
+*.eln
+/eln-cache/
+*-autoloads.el
+*-pkg.el
+!/lisp/*-pkg.el
+
+# ---------------------------------------------------------------------------
+# Grammaires tree-sitter compilées (binaires propres à la plateforme)
+# ---------------------------------------------------------------------------
+/tree-sitter/
+
+# ---------------------------------------------------------------------------
+# Caches et états persistants d'Emacs et des paquets
+# ---------------------------------------------------------------------------
+/.cache/
+/deps-cache/
+/transient/
+/eshell/
+/url/
+/request/
+/image-dired/
+/var/
+/etc/
+/server/
+/auto-save-list/
+/tramp
+/tramp-autosave/
+/tramp-connection-history
+/history
+/savehist
+/places
+/recentf
+/projects
+/bookmarks
+/abbrev_defs
+/network-security.data
+/.lsp-session-v1
+/.mc-lists.el
+/eglot-events*
+/ido.last
+/.org-id-locations
+/org-persist/
+/calc.el
+/games/
+
+# Paramètres de Custom : spécifiques à chaque machine.
+# init.el le charge seulement s'il existe (voir la section DÉMARRAGE).
+/custom.el
+
+# ---------------------------------------------------------------------------
+# Fichiers de sauvegarde et d'auto-sauvegarde
+# (redirigés par lisp/my-editing.el, mais filet de sécurité)
+# ---------------------------------------------------------------------------
+/backups/
+/auto-save/
+*~
+\#*\#
+.#*
+*.swp
+
+# ---------------------------------------------------------------------------
+# Télémétrie de performance (perf/perf-start.el)
+# Seuls le collecteur, son test et sa documentation sont versionnés.
+# ---------------------------------------------------------------------------
+/perf/*.tsv
+/perf/cpu/
+/perf/*.elprof
+
+# ---------------------------------------------------------------------------
+# LaTeX / AUCTeX : fichiers intermédiaires et sorties
+# ---------------------------------------------------------------------------
+.auctex-auto/
+.auctex-style/
+_minted*/
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.run.xml
+*.synctex.gz
+*.synctex(busy)
+*.toc
+*.xdv
+*.pdf
+
+# ---------------------------------------------------------------------------
+# Systèmes d'exploitation et éditeurs tiers
+# ---------------------------------------------------------------------------
+.DS_Store
+Thumbs.db
+desktop.ini
+*:Zone.Identifier
+.vscode/
+.idea/
+
+# ---------------------------------------------------------------------------
+# Claude Code : réglages personnels non partagés
+# ---------------------------------------------------------------------------
+/.claude/settings.local.json

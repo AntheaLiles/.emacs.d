@@ -1,0 +1,49 @@
+# SPDX-FileCopyrightText: 2026 AntheaLiles
+# SPDX-License-Identifier: CC0-1.0
+
+# Fins de ligne : LF partout, y compris lors d'une extraction sous Windows
+# (la configuration est utilisée depuis WSL ; des CRLF casseraient Emacs
+# Lisp, les scripts latexmk et les en-têtes SPDX).
+* text=auto eol=lf
+
+# Pilotes de diff : en-têtes de hunk lisibles (nom de la fonction, section…)
+*.el        text diff=lisp
+*.tex       text diff=tex
+*.sty       text diff=tex
+*.cls       text diff=tex
+latexmkrc   text diff=perl
+*.md        text diff=markdown
+*.org       text
+*.cff       text
+*.yml       text
+*.yaml      text
+*.json      text
+*.toml      text
+*.tsv       text -whitespace
+
+# Snippets yasnippet : le blanc final peut être significatif
+snippets/** text -whitespace
+
+# Binaires
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.elc  binary
+*.eln  binary
+*.so   binary
+*.elprof binary
+
+# Statistiques de langage GitHub (Linguist)
+*.el          linguist-language=Emacs-Lisp
+latexmkrc     linguist-language=Perl
+LICENSES/**   linguist-documentation
+*.md          linguist-documentation
+latex/old-*.tex linguist-vendored
+
+# Exclusions des archives `git archive`
+/.github        export-ignore
+/.claude        export-ignore
+/.gitattributes export-ignore

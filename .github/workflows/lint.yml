@@ -1,0 +1,33 @@
+name: Lint
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  elisp:
+    name: Emacs Lisp (Emacs ${{ matrix.emacs }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # La configuration cible Emacs 31 ; 30.2 sert de référence stable.
+        emacs: ["30.2", "snapshot"]
+    continue-on-error: ${{ matrix.emacs == 'snapshot' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: purcell/setup-emacs@master
+        with:
+          version: ${{ matrix.emacs }}
+      - name: Parenthèses et compilation à octets
+        run: emacs -Q --batch -l scripts/check.el
+      - name: Test ERT du collecteur de télémétrie
+        run: |
+          emacs -Q --batch \
+            --eval '(setq my/perf-root (make-temp-file "perf-" t))' \
+            -l perf/perf-start.el -l perf/perf-self-test.el \
+            -f ert-run-tests-batch-and-exit

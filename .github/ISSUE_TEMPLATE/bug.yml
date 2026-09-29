@@ -1,0 +1,38 @@
+name: Dysfonctionnement
+description: Consigner un problème constaté dans la configuration (usage interne).
+title: "fix: "
+labels: [bug]
+body:
+  - type: textarea
+    id: symptome
+    attributes:
+      label: Symptôme
+      description: Ce qui se passe, et ce qui était attendu.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Fichier ouvert, commande lancée, raccourci utilisé.
+      placeholder: |
+        1. emacs
+        2. C-x C-f ~/wiki/main.org
+        3. C-c C-e l o
+  - type: input
+    id: module
+    attributes:
+      label: Module concerné
+      placeholder: init.el, lisp/my-export-ui.el…
+  - type: textarea
+    id: environnement
+    attributes:
+      label: Environnement
+      description: "`M-x emacs-version`, système (WSL ?), paquet et version si pertinent."
+      render: text
+  - type: textarea
+    id: messages
+    attributes:
+      label: Messages / backtrace
+      description: Contenu de *Messages* ou *Backtrace* (`M-x toggle-debug-on-error`).
+      render: text
