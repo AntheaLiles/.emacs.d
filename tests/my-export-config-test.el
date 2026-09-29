@@ -69,6 +69,36 @@ Regression: Org 9.7 exports titles through such a backend, on which
                                              (list :back-end html))
                    "\\texttt{f}"))))
 
+(ert-deftest my/export-drawio-links-rewritten ()
+  "Converted .drawio links point to the PDF and keep their form.
+Regression: the file: prefix was dropped, turning [[file:x.drawio]]
+into [[x.pdf]], which Org reads as an internal link."
+  (let* ((dir (file-name-as-directory (make-temp-file "drawio-test-" t)))
+         (bin (expand-file-name "bin/" dir))
+         (stub (expand-file-name "drawio" bin))
+         (default-directory dir)
+         (exec-path (cons bin exec-path))
+         (process-environment
+          (cons (concat "PATH=" bin path-separator (getenv "PATH"))
+                process-environment)))
+    (unwind-protect
+        (progn
+          (make-directory bin)
+          ;; Simulacre : drawio -x -f pdf --crop -o SORTIE ENTRÉE
+          (with-temp-file stub
+            (insert "#!/bin/sh\nwhile [ $# -gt 0 ]; do [ \"$1\" = -o ] && out=$2; shift; done\n"
+                    "echo pdf > \"$out\"\n"))
+          (set-file-modes stub #o755)
+          (dolist (f '("a.drawio" "b.drawio"))
+            (with-temp-file (expand-file-name f dir) (insert "<mxfile/>")))
+          (with-temp-buffer
+            (insert "[[file:a.drawio]]\n[[./b.drawio]]\n")
+            (my/org-convert-drawio 'latex)
+            (should (equal (buffer-string) "[[file:a.pdf]]\n[[./b.pdf]]\n")))
+          (should (file-exists-p (expand-file-name "a.pdf" dir)))
+          (should (file-exists-p (expand-file-name "b.pdf" dir))))
+      (delete-directory dir t))))
+
 (ert-deftest my/export-verbatim-untouched ()
   "=verbatim= keeps the plain monospace rendering."
   (let ((out (my/test--latex-body "=v=")))
