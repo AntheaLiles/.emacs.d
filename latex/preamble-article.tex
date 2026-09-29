@@ -327,6 +327,18 @@
 \DeclareFloatingEnvironment[fileext=lst,listname={},name=Listing]{listing}
 \fvset{breaklines=true,breakanywhere=true}
 
+% Code en ligne : ~code~ et src_LANG{…} d'Org (voir lisp/my-export-config.el,
+% section CODE EN LIGNE, qui produit \CodeInline).  Monospace sur fond grisé ;
+% pour src_LANG, la coloration syntaxique vient d'engrave-faces.
+% lua-ul surligne sans enfermer le texte dans une boîte : le code reste
+% sécable en fin de ligne, contrairement à \colorbox ou \tcbox.
+\usepackage{luacolor} % requis par \highLight
+\usepackage{lua-ul}
+\definecolor{fondcodeenligne}{gray}{0.92}
+\NewDocumentCommand{\CodeInline}{m}{%
+  {\ttfamily\highLight[fondcodeenligne]{\kern.15em#1\kern.15em}}}
+% Signets PDF : voir \pdfstringdefDisableCommands après hyperref.
+
 %%% 07. Factorisation des listes & Messages de repli
 %
 % MÉMO UTILISATION :
@@ -445,7 +457,10 @@
 % MÉMO UTILISATION ORG-MODE :
 %   - Lien ORCID : \orcidlink{0000-0000-0000-0000}
 %
-\newcommand{\orcidicon}{~/.emacs.d/assets/ORCID-iD-icon-BW-16x16.png}
+% \emacsdir est défini par la classe d'export (lisp/my-export-config.el) à
+% partir de `user-emacs-directory' ; valeur de repli pour un usage direct.
+\providecommand{\emacsdir}{~/.emacs.d/}
+\newcommand{\orcidicon}{\emacsdir assets/ORCID-iD-icon-BW-16x16.png}
 \newcommand{\orcidlink}[1]{\href{https://orcid.org/#1}{\raisebox{-0.1em}{\includegraphics[height=\fontcharht\font`A]{\orcidicon}}}}
 
 \usepackage{hyperref}
@@ -454,6 +469,7 @@
   \def\footnote#1{} \def\marginpar#1{} \def\marginnote#1{}%
   \def\href#1#2{#2} \def\textcolor#1#2{#2} \def\uline#1{#1} \def\sout#1{#1} \def\enquote#1{#1}%
   \def\orcidlink#1{ORCID: #1}%
+  \def\CodeInline#1{#1}%
 }
 \hypersetup{
   colorlinks=true,

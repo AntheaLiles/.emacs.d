@@ -68,7 +68,7 @@
 
 (let* ((all (append (list (expand-file-name "early-init.el" my/check-root)
                           (expand-file-name "init.el" my/check-root))
-                    (my/check--files "lisp" "perf" "scripts")))
+                    (my/check--files "lisp" "perf" "scripts" "tests")))
        (modules (my/check--files "lisp" "perf"))
        (outdir (make-temp-file "emacs-d-check-" t))
        ;; Aucune écriture dans le dépôt, ni dans ~/.emacs.d réel.

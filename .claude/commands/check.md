@@ -8,5 +8,6 @@ Depuis la racine du dépôt, exécute dans l'ordre et résume les résultats :
 2. `emacs -Q --batch -l scripts/check.el` — distingue erreurs (bloquantes) et
    avertissements (à signaler, non bloquants).
 3. `emacs -Q --batch --eval '(setq my/perf-root (make-temp-file "perf-" t))' -l perf/perf-start.el -l perf/perf-self-test.el -f ert-run-tests-batch-and-exit`
+4. `emacs -Q --batch -L lisp -l tests/my-export-config-test.el -f ert-run-tests-batch-and-exit`
 
 Termine par un tableau : vérification, statut, points à corriger.

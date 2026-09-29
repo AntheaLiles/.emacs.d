@@ -10,6 +10,28 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ## [Non publié]
 
+### Ajouté
+
+- **Code en ligne à l'export PDF** : `~code~` et `src_LANG{…}` sont composés
+  en monospace sur fond grisé (macro `\CodeInline`, paquet `lua-ul`, sécable
+  en fin de ligne), les seconds colorés selon leur langage par engrave-faces ;
+  titres et signets PDF compris. `=verbatim=` est inchangé.
+- `tests/my-export-config-test.el` : tests ERT de l'export du code en ligne,
+  exécutés par `make test` et la CI.
+
+### Modifié
+
+- Les blocs `src_LANG{…}` exportent désormais leur **code** au lieu d'être
+  évalués (`:exports code` par défaut) : la confirmation Babel étant coupée
+  pendant l'export, du code en ligne s'exécutait sans demander. Pour un
+  résultat, écrire `src_LANG[:exports results]{…}`.
+- `latex/preamble-article.tex` : l'icône ORCID est cherchée via `\emacsdir`,
+  fourni par la classe d'export à partir de `user-emacs-directory` (repli sur
+  `~/.emacs.d/`).
+- `magit` n'est plus chargé au démarrage (`:demand t` retiré).
+- Les réglages et hooks outline/hideshow d'`init.el`, qui doublaient ceux de
+  `lisp/my-folding.el`, sont retirés : ce module en est la seule source.
+
 ### Corrigé
 
 - **Télémétrie** (`perf/perf-start.el`) : une parenthèse mal placée imbriquait
@@ -66,12 +88,6 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 - `perf/perf-self-test.el` : le `let` sur `my/perf-root` était lexical et
   sans effet ; ajout de deux tests de non-régression pour le bug de
   télémétrie.
-
-### Modifié
-
-- `magit` n'est plus chargé au démarrage (`:demand t` retiré).
-- Les réglages et hooks outline/hideshow d'`init.el`, qui doublaient ceux de
-  `lisp/my-folding.el`, sont retirés : ce module en est la seule source.
 
 ## [0.1.0] — 2026-09-29
 
