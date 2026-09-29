@@ -18,6 +18,12 @@ paquet, **correctif** = correction sans changement de comportement attendu.
   titres et signets PDF compris. `=verbatim=` est inchangé.
 - `tests/my-export-config-test.el` : tests ERT de l'export du code en ligne,
   exécutés par `make test` et la CI.
+- `docs/audit-2026-09.md` : audit complet (architecture, alternatives
+  natives d'Emacs 30/31 et d'Org 9.8, fiabilité, performance Emacs et LaTeX,
+  Lua et LuaJIT), mesures à l'appui, et feuille de route.
+- `scripts/bench-latex.sh` : mesure du temps de compilation d'un document
+  exporté sous plusieurs variantes (options actuelles, règle `run.xml`, sans
+  balisage PDF/UA, `.bib` réduite), à lancer sur la machine réelle.
 
 ### Modifié
 

@@ -63,6 +63,8 @@ réorganisée sans adapter ces chemins.
 │   ├── perf-self-test.el    Test ERT de non-régression du collecteur
 │   └── README.md            Description du jeu de données produit
 ├── scripts/check.el       Vérifications statiques (parenthèses, compilation)
+├── scripts/bench-latex.sh Mesure du temps de compilation LaTeX (variantes)
+├── docs/                  Audit et documentation complémentaire
 ├── tests/                 Tests ERT (export Org : code en ligne)
 ├── Makefile               `make check` : REUSE + lint + test ERT
 ├── LICENSES/              Textes intégraux des licences (REUSE)
@@ -227,6 +229,13 @@ make check    # = make reuse lint test
 
 La CI GitHub exécute les mêmes vérifications à chaque push (Emacs 31.1 et
 snapshot).
+
+## Audit
+
+[`docs/audit-2026-09.md`](docs/audit-2026-09.md) : état de l'architecture,
+inventaire des alternatives natives d'Emacs 30/31, défauts restants, et
+mesures de performance LaTeX (dont l'évaluation de Lua et de LuaJIT), avec
+une feuille de route.
 
 ## Licences
 
