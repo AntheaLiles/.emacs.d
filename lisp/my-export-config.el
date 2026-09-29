@@ -69,12 +69,26 @@
   "Match ox-latex output for inline code: \\texttt{…} or \\Verb[…]{…}.
 Group 1 is the code, group 2 the trailing blanks added by the exporter.")
 
+(defun my/org-export--latex-backend-p (backend)
+  "Non-nil if BACKEND, a backend structure or name, derives from `latex'.
+Unlike `org-export-derived-backend-p', follow parents given as backend
+structures, not only as names: since Org 9.7, section titles are exported
+through `org-latex--section-no-footnote-backend', an anonymous backend
+whose parent is itself an anonymous structure."
+  (let ((b backend) found)
+    (while (and b (not found))
+      (when (symbolp b) (setq b (org-export-get-backend b)))
+      (when b
+        (if (eq (org-export-backend-name b) 'latex)
+            (setq found t)
+          (setq b (org-export-backend-parent b)))))
+    found))
+
 (defun my/org-latex-inline-code (text _backend info)
   "Rewrap inline code TEXT in \\CodeInline for LaTeX exports.
 Used as a filter on `code' and `inline-src-block' objects.  The backend
-is read from INFO: titles are exported through an anonymous backend
-derived from `latex', whose name, passed as the second argument, is nil."
-  (if (and (org-export-derived-backend-p (plist-get info :back-end) 'latex)
+is read from INFO: in titles, the name passed as second argument is nil."
+  (if (and (my/org-export--latex-backend-p (plist-get info :back-end))
            (string-match my/org-latex-inline-code-regexp text))
       (let ((code (match-string 1 text))
             (blanks (match-string 2 text)))

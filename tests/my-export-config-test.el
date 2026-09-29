@@ -51,6 +51,24 @@
     (should (string-match-p (regexp-quote "\\section{Titre \\CodeInline{f}}")
                             out))))
 
+(ert-deftest my/export-inline-code-nested-anonymous-backend ()
+  "The filter accepts anonymous backends whose parent is a structure.
+Regression: Org 9.7 exports titles through such a backend, on which
+`org-export-derived-backend-p' signals `wrong-type-argument'."
+  (let* ((section (org-export-create-backend :parent 'latex))
+         (nested (org-export-create-backend :parent section))
+         (html (org-export-create-backend :parent 'html)))
+    (should (my/org-export--latex-backend-p nested))
+    (should (my/org-export--latex-backend-p 'latex))
+    (should-not (my/org-export--latex-backend-p html))
+    (should-not (my/org-export--latex-backend-p nil))
+    (should (equal (my/org-latex-inline-code "\\texttt{f} " nil
+                                             (list :back-end nested))
+                   "\\CodeInline{f} "))
+    (should (equal (my/org-latex-inline-code "\\texttt{f}" nil
+                                             (list :back-end html))
+                   "\\texttt{f}"))))
+
 (ert-deftest my/export-verbatim-untouched ()
   "=verbatim= keeps the plain monospace rendering."
   (let ((out (my/test--latex-body "=v=")))
