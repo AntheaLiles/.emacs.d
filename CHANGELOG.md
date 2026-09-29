@@ -85,6 +85,7 @@ paquet, **correctif** = correction sans changement de comportement attendu.
   relancé ne laisse plus tourner l'ancien minuteur.
 - Obsolescences d'Emacs 31 : `when-let` → `when-let*`, `idle-update-delay`
   → `which-func-update-delay`.
+- CI : `actions/checkout` passe en v5 (Node 20 déprécié sur les runners).
 - `perf/perf-self-test.el` : le `let` sur `my/perf-root` était lexical et
   sans effet ; ajout de deux tests de non-régression pour le bug de
   télémétrie.
