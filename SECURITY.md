@@ -51,7 +51,9 @@ réception est visé sous 14 jours, sans garantie de délai de correction.
 - N'exporter en PDF que des documents Org/LaTeX de confiance, à cause de
   `-shell-escape`.
 - Garder `org-confirm-babel-evaluate` actif pour les fichiers d'origine
-  inconnue.
+  inconnue. Attention : `lisp/my-export-config.el` désactive cette
+  confirmation **pendant l'export** ; exporter un fichier non vérifié exécute
+  donc ses blocs Babel sans demander.
 - Ne jamais versionner `custom.el`, l'historique (`history`) ni les données de
   `perf/` : ils peuvent contenir des chemins, des noms d'hôtes TRAMP ou le
   contenu du kill-ring. Le `.gitignore` les exclut déjà.

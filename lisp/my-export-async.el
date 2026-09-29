@@ -14,14 +14,14 @@
 
 ;;; Code:
 
-;;;; LOAD PATH
+;;;; LOAD PATH — paquets Elpaca
 (let ((builds-dir (expand-file-name "elpaca/builds/" user-emacs-directory)))
   (when (file-directory-p builds-dir)
     (dolist (dir (directory-files builds-dir t "^[^.]"))
       (when (file-directory-p dir)
         (add-to-list 'load-path dir)))))
 
-;;;; LOAD PATH
+;;;; LOAD PATH — modules maison
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
 
 ;;;; CHEMINS
@@ -31,30 +31,9 @@
 (require 'org)
 (require 'ox-latex)
 
-(unless (require 'engrave-faces-latex nil t)
-  (message "ATTENTION : engrave-faces-latex absent — bascule sur le rendu verbatim")
-  (with-eval-after-load 'ox-latex
-    (setopt org-latex-src-block-backend 'verbatim)))
-
-;;;; FILTRE :IGNORE: CUSTOM (remplace ox-extra — T-02)
-(with-eval-after-load 'ox
-  (defun my/org-export-ignore-headlines (_backend)
-  "Remove headlines tagged :ignore: but keep their contents.
-Les positions sont RELEVÉES d'abord, puis supprimées en ordre décroissant :
-supprimer de la fin vers le début est ce qui évite le décalage."
-  (org-with-wide-buffer
-   (let (positions)
-     (org-map-entries
-      (lambda ()
-        (when (member "ignore" (org-get-tags nil t))
-          (push (point) positions))))
-     (dolist (p (sort positions #'>))
-       (goto-char p)
-       (delete-region (line-beginning-position) (line-beginning-position 2))))))
-  (add-hook 'org-export-before-processing-hook
-            #'my/org-export-ignore-headlines))
-
 ;;;; CONFIGURATION D'EXPORT PARTAGÉE
+;; Inclut le filtre des titres :ignore:, les autres filtres de pré-analyse
+;; et le choix du rendu des blocs source (engraved, ou verbatim en repli).
 (require 'my-export-config)
 
 ;;;; ORG-GLOSSARY (optionnel — ne crash pas si absent)

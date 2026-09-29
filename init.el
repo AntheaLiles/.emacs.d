@@ -129,21 +129,9 @@
   (mood-line-glyph-alist mood-line-glyphs-unicode))
 
 ;;;; REPLIEMENT DE CODE
-(use-package outline
-  :ensure nil
-  :hook ((prog-mode . outline-minor-mode)
-         (LaTeX-mode . outline-minor-mode)
-         (markdown-ts-mode . outline-minor-mode))
-  :custom
-  (outline-minor-mode-cycle t)      ; TAB cycle quand le point est sur un header
-  (outline-minor-mode-highlight 'append)
-  (outline-blank-line t))
-
-(use-package hideshow
-  :ensure nil
-  :hook (prog-mode . hs-minor-mode)
-  :custom
-  (hs-hide-comments-when-hiding-all nil))
+;; Entièrement géré par lisp/my-folding.el (outline + hideshow, TAB à la Org),
+;; chargé plus haut : aucun hook ni réglage ici, pour éviter qu'outline soit
+;; activé avant que my-folding n'ait posé l'`outline-regexp' du mode.
 
 ;;;; BUILT-INS
 (use-package which-key
@@ -333,7 +321,6 @@
 
 (use-package magit
   :ensure t
-  :demand t
   :bind ("C-x g" . magit-status)
   :commands (magit-status magit-dispatch magit-file-dispatch)
   :custom  (magit-diff-refine-hunk t))  ; diff au niveau du mot (plus précis)
@@ -431,7 +418,7 @@
   (org-startup-with-inline-images t)
   (org-cite-global-bibliography my/bibliography-files)
   (org-cite-export-processors '((latex biblatex)
-                                (t     csl "expand-file-name.csl")))
+                                (t     csl)))
   (org-cite-csl-styles-dir  my/zotero-styles-dir)
   (org-cite-csl-locales-dir my/csl-locales-dir)
   (org-cite-csl-bibtex-titles-to-sentence-case t)
@@ -456,20 +443,10 @@
         (add-to-list 'org-babel-load-languages (cons lang t))))
     (org-babel-do-load-languages 'org-babel-load-languages
                                  org-babel-load-languages))
-  (defun my/org-export-ignore-headlines (_backend)
-    "Remove headlines tagged :ignore: but keep their contents."
-    (org-map-entries
-     (lambda ()
-       (when (member "ignore" (org-get-tags nil t))
-         (delete-region (point) (line-beginning-position 2))))
-     nil nil 'reversed))
-
-  (with-eval-after-load 'ox
-    (add-hook 'org-export-before-processing-functions
-              #'my/org-export-ignore-headlines))
-
+  ;; Configuration d'export partagée avec le processus asynchrone :
+  ;; pipeline LuaLaTeX, rendu des blocs, filtres (dont les titres :ignore:).
+  ;; ox charge ox-latex (`org-export-backends'), donc tout export en profite.
   (with-eval-after-load 'ox-latex
-    (setq org-latex-src-block-backend 'engraved)
     (require 'my-export-config)))
 
 (use-package org-appear
@@ -568,8 +545,7 @@
 (use-package emacs ; configuration LaTeX
   :ensure nil
   :hook ((LaTeX-mode        . prettify-symbols-mode)
-         (LaTeX-mode        . visual-line-mode)
-         (LaTeX-mode        . flyspell-mode)))
+         (LaTeX-mode        . visual-line-mode)))
 
 (use-package tex
   :ensure (auctex
@@ -665,16 +641,14 @@
   (org-noter-highlight-selected-text t)
   (org-noter-always-create-frame nil)
   (org-noter-default-notes-file-names '("annotations.org"))
-  (org-noter-doc-split-fraction '(0.6 . 0.4))
-  :config
-  (require 'my-citar-noter)
-  (with-eval-after-load 'citar
-    (citar-register-notes-source
-     'noter-notes
-     (list :name "Org-noter"
-           :category 'file
-           :open #'my/citar-open-noter))
-    (setq citar-notes-source 'noter-notes)))
+  (org-noter-doc-split-fraction '(0.6 . 0.4)))
+
+;; Ouvrir le PDF d'une référence et y lancer org-noter.  Les notes restent
+;; gérées par la source de notes par défaut de citar (`citar-notes-paths').
+(use-package my-citar-noter
+  :ensure nil
+  :commands my/citar-open-pdf-with-noter
+  :bind ("C-c n P" . my/citar-open-pdf-with-noter))
 
 ;;;; FILE MANAGEMENT
 (use-package emacs             ; File utilities

@@ -13,15 +13,16 @@
 ;;         ailleurs      → indente normalement
 ;;   S-TAB n'importe où  → cycle global overview / contents / show-all
 ;;
-;; Deux mécanismes complémentaires, unifiés par `bicycle' :
+;; Deux mécanismes complémentaires, unifiés par `my/fold-tab-dwim' :
 ;;   - outline-minor-mode : titres, détectés par `outline-regexp' (motif textuel)
 ;;   - hs-minor-mode      : blocs, détectés par la syntaxe (parenthèses, begin/end)
 ;;
 ;; Org-mode est volontairement EXCLU : il dérive d'outline-mode et possède
 ;; déjà son propre cycling. Y activer outline-minor-mode casserait org-cycle.
 ;;
-;; Chargé par init.el via (require 'my-folding).
-;; Prérequis : (use-package bicycle :ensure t) déclaré dans init.el.
+;; Chargé par init.el via (require 'my-folding).  Aucun paquet externe :
+;; outline et hideshow sont intégrés à Emacs.  init.el ne déclare aucun
+;; hook outline/hideshow de son côté, ce module en est la seule source.
 
 ;;; Code:
 
@@ -143,6 +144,17 @@ Works in any mode defining `comment-start'."
                '(ebnf-mode "(" ")" "(\\*" nil nil)))
 
 ;;;; TAB INTELLIGENT
+(defun my/folding--block-on-line-p ()
+  "Return non-nil if a hideable block starts on the current line.
+Relies on `hs-get-first-block-on-line' (Emacs 31), which replaces the
+removed `hs-looking-at-block-start-p'.  With the default
+`hs-hide-block-behavior' (`after-bol'), `hs-toggle-hiding' then acts on
+that block wherever point is on the line."
+  (and (fboundp 'hs-get-first-block-on-line)
+       (save-excursion
+         (forward-line 0)
+         (ignore-errors (hs-get-first-block-on-line)))))
+
 (defun my/fold-tab-dwim (&optional arg)
   "Cycle folding at point, or indent.
 On an outline heading, cycle its visibility.
@@ -156,12 +168,10 @@ With prefix ARG, always indent."
    ((and (bound-and-true-p outline-minor-mode)
          (outline-on-heading-p))
          (outline-cycle))
-   ;; 2. Sur un bloc hideshow → plier / déplier
+   ;; 2. Sur une ligne qui ouvre un bloc hideshow → plier / déplier
    ((and (bound-and-true-p hs-minor-mode)
-         (save-excursion
-           (end-of-line)
-           (or (hs-already-hidden-p)
-               (ignore-errors (hs-looking-at-block-start-p)))))
+         (or (hs-already-hidden-p)
+             (my/folding--block-on-line-p)))
     (hs-toggle-hiding))
    ;; 3. Ailleurs → indentation normale
    (t (indent-for-tab-command))))

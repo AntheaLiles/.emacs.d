@@ -16,6 +16,8 @@
 
 ;;; Code:
 
+(declare-function eglot-format-buffer "eglot" ())
+
 ;;;; TRAILING WHITESPACE
 ;; Sauvegarde manuelle uniquement
 (defun my/cleanup-on-save ()

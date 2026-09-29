@@ -17,7 +17,7 @@
   "Répertoire racine du wiki et des travaux de recherche.")
 
 (defvar my/resources-path (expand-file-name "00.resources" my/wiki-path)
-  "Répertoire racine du wiki et des travaux de recherche.")
+  "Répertoire des ressources partagées du wiki (bibliographie, CSL, notes).")
 
 (defvar my/bibliography-files (list (expand-file-name "references.bib" my/resources-path))
   "Fichiers bibliographiques pour Org-cite et Citar.")
@@ -38,16 +38,20 @@
   "Répertoire des locales CSL (clone de citation-style-language/locales).")
 
 ;;;; PATH NODE.JS (nvm)
-;; Ajoute uniquement la version Node la plus récente au PATH
-;; (les versions sont triées alphabétiquement, la dernière = plus récente)
+;; Ajoute uniquement la version Node la plus récente au PATH.
+;; Tri par numéro de version et non alphabétique : sinon v9.x passerait
+;; après v18.x et serait retenue à tort.
 (let ((nvm-dir (expand-file-name ".nvm/versions/node" "~")))
   (when (file-directory-p nvm-dir)
-    (let ((versions (directory-files nvm-dir t "^v[0-9]")))
-      (when versions
-        (let ((bin (expand-file-name "bin" (car (last versions)))))
-          (when (file-directory-p bin)
-            (add-to-list 'exec-path bin)
-            (setenv "PATH" (concat bin ":" (getenv "PATH")))))))))
+    (when-let* ((versions
+                 (sort (directory-files nvm-dir t "\\`v[0-9]")
+                       (lambda (a b)
+                         (version< (substring (file-name-nondirectory a) 1)
+                                   (substring (file-name-nondirectory b) 1)))))
+                (bin (expand-file-name "bin" (car (last versions))))
+                ((file-directory-p bin)))
+      (add-to-list 'exec-path bin)
+      (setenv "PATH" (concat bin path-separator (getenv "PATH"))))))
 
 ;;;; TREE-SITTER GRAMMAIRES
 (when (fboundp 'treesit-available-p)
