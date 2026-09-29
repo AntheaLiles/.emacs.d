@@ -72,7 +72,9 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 - **Chemins en dur** : `my-export-config.el` n'écrit plus `~/.emacs.d` ; le
   préambule et `latexmkrc` sont dérivés de `user-emacs-directory`.
 - **Conversion drawio** : les positions du lien sont relevées avant l'appel
-  au processus externe, et les liens `[[file:….drawio]]` sont reconnus.
+  au processus externe, et les liens `[[file:….drawio]]` sont reconnus et
+  réécrits en `[[file:….pdf]]` (le préfixe était perdu, ce qui en faisait un
+  lien interne introuvable) ; test ERT ajouté.
 - **Repliement** (`my-folding.el`) : `hs-looking-at-block-start-p`, supprimée
   dans Emacs 31, rendait `TAB` inopérant sur les blocs de code ; remplacée par
   `hs-get-first-block-on-line`.

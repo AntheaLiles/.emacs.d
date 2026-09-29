@@ -441,12 +441,15 @@ BACKEND est le backend d'export."
     (save-excursion
       (goto-char (point-min))
       (while (re-search-forward
-              "\\[\\[\\(?:file:\\)?\\([^]]*\\.drawio\\)\\]\\]" nil t)
+              "\\[\\[\\(file:\\)?\\([^]]*\\.drawio\\)\\]\\]" nil t)
         ;; Positions relevées tout de suite : les appels qui suivent
         ;; (processus externe, messages) peuvent écraser les données de match.
+        ;; Le préfixe file: est conservé dans le lien réécrit : sans lui,
+        ;; [[img/x.pdf]] serait lu par Org comme un lien interne.
         (let* ((link-beg (match-beginning 0))
                (link-end (match-end 0))
-               (drawio-file (match-string 1))
+               (prefix (or (match-string 1) ""))
+               (drawio-file (match-string 2))
                (drawio-path (expand-file-name drawio-file))
                (pdf-path (concat (file-name-sans-extension drawio-path) ".pdf"))
                (pdf-link (concat (file-name-sans-extension drawio-file) ".pdf")))
@@ -466,7 +469,7 @@ BACKEND est le backend d'export."
                          drawio-file code))))
           (goto-char link-beg)
           (delete-region link-beg link-end)
-          (insert "[[" pdf-link "]]"))))))
+          (insert "[[" prefix pdf-link "]]"))))))
 
 (add-hook 'org-export-before-parsing-functions #'my/org-convert-drawio)
 
