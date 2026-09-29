@@ -44,8 +44,10 @@ emacs -Q --batch --eval '(setq my/perf-root (make-temp-file "perf-" t))' \
       -f ert-run-tests-batch-and-exit
 ```
 
-Ou la commande `/check`. L'Emacs de l'environnement cloud peut être plus
-ancien que 31 : des avertissements sur des fonctions d'Emacs 31 sont attendus.
+Ou la commande `/check`. La version de référence est **Emacs 31.1**
+(celle utilisée au quotidien et par la CI). L'Emacs de l'environnement cloud
+peut être plus ancien : un résultat local n'y vaut pas validation, seule la
+CI sous 31.1 fait foi.
 
 ## Architecture
 

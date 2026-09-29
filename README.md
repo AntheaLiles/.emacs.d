@@ -206,7 +206,7 @@ make check    # = make reuse lint test
 | `lint` | `emacs -Q --batch -l scripts/check.el` | Parenthèses de tous les `.el`, compilation à octets des modules (dans un dossier temporaire). |
 | `test` | ERT sur `perf/perf-self-test.el` | Non-régression du collecteur de télémétrie. |
 
-La CI GitHub exécute les mêmes vérifications à chaque push (Emacs 30.2 et
+La CI GitHub exécute les mêmes vérifications à chaque push (Emacs 31.1 et
 snapshot).
 
 ## Licences
