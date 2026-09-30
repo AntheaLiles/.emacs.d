@@ -667,12 +667,15 @@ BACKEND est le backend d'export."
 (add-hook 'org-export-before-parsing-functions #'my/org-convert-drawio)
 
 ;;;; BIBLIOGRAPHIES PAR SECTION (CSL)
-;; biblatex ouvrait une refsection à chaque \section.  Le processeur CSL d'Org
-;; ne connaît que des sous-bibliographies filtrées (:filter PRÉDICAT).  Avant
-;; l'analyse, on relève les clés citées dans chaque section de premier niveau
-;; qui contient un #+print_bibliography:, on fabrique un prédicat qui ne
-;; retient que ces clés, et on l'ajoute au mot-clé.  La liste est composée
-;; dans l'environnement bibliographieua du préambule (\scriptsize).
+;; Un seul #+print_bibliography: dans le document : bibliographie unique, de
+;; toutes les références citées (cas d'un article, placée en fin de
+;; document, souvent après des #+INCLUDE).  Plusieurs : une par section de
+;; premier niveau, comme les refsections de biblatex.  Le processeur CSL
+;; d'Org ne connaît que des sous-bibliographies filtrées (:filter
+;; PRÉDICAT) : avant l'analyse, on relève les clés citées dans la section
+;; de chaque mot-clé, on fabrique un prédicat qui ne retient que celles-ci,
+;; et on l'ajoute au mot-clé.  La liste est composée dans l'environnement
+;; bibliographieua du préambule (\scriptsize).
 ;;
 ;; Titre : comme biblatex (voir `my/pdfua--bib-heading'), « Références »
 ;; (\refname de babel) en \section* par défaut, en \subsection* avec
@@ -732,47 +735,50 @@ subbibliography\".  Headings and defaults follow biblatex: without
             (setq pos (match-end 0))))))
     (nreverse keys)))
 
+(defun my/pdfua--section-bounds ()
+  "Return (BEG . END) of the top-level section around point.
+Before the first heading, the section is the start of the buffer."
+  (save-excursion
+    (let ((beg (if (re-search-backward "^\\* " nil t) (point) (point-min))))
+      (goto-char beg)
+      (forward-line 1)
+      (cons beg (if (re-search-forward "^\\* " nil t)
+                    (line-beginning-position)
+                  (point-max))))))
+
 (defun my/pdfua-bibliographies-par-section (backend)
-  "Restrict each section's #+print_bibliography: to the keys cited there.
-Only for the PDF/UA BACKEND."
+  "Title and lay out each #+print_bibliography:, and split them by section.
+With a single bibliography, it lists every cited reference.  With several,
+each one lists the references cited in its top-level section, like
+biblatex's refsections.  Only for the PDF/UA chain (see BACKEND)."
   (when (my/pdfua-active-p backend)
     (setq my/pdfua--section-counter 0)
     (save-excursion
-      (goto-char (point-min))
-      (let ((case-fold-search t))
-        (while (re-search-forward "^\\* " nil t)
-          (let* ((beg (line-beginning-position))
-                 ;; Marqueur : la borne suit les insertions.
-                 (end (copy-marker
-                       (save-excursion
-                         (if (re-search-forward "^\\* " nil t)
-                             (line-beginning-position)
-                           (point-max)))))
-                 (keys (my/pdfua--cited-keys beg end)))
-            (save-excursion
-              (goto-char beg)
-              (while (re-search-forward
-                      "^\\([ \t]*\\)#\\+print_bibliography:\\(.*\\)$" end t)
-                (let* ((indent (match-string 1))
-                       (props (match-string 2))
-                       (fn (intern (format "my/pdfua--bibliographie-%d"
-                                           (cl-incf my/pdfua--section-counter))))
-                       (ks keys))
-                  (defalias fn (lambda (vars) (member (alist-get 'id vars) ks))
-                    "Per-section bibliography predicate, generated at export.")
-                  (end-of-line)
-                  (insert (format " :filter %s" fn))
-                  (forward-line 0)
-                  (when-let* ((titre (my/pdfua--bib-heading props)))
-                    (insert indent "#+LATEX: " titre "\n"))
-                  ;; Environnement du préambule : police et point d'accroche
-                  ;; (cslbibliography n'existe qu'à partir d'Org 9.8).
-                  (insert indent "#+LATEX: \\begin{bibliographieua}\n")
-                  ;; Repartir après le mot-clé, sans quoi la recherche
-                  ;; suivante le retrouverait indéfiniment.
-                  (end-of-line)
-                  (insert "\n" indent "#+LATEX: \\end{bibliographieua}"))))
-            (set-marker end nil)))))))
+      (let* ((case-fold-search t)
+             (re "^\\([ \t]*\\)#\\+print_bibliography:\\(.*\\)$")
+             (par-section (> (how-many re (point-min) (point-max)) 1)))
+        (goto-char (point-min))
+        (while (re-search-forward re nil t)
+          (let ((indent (match-string 1))
+                (props (match-string 2)))
+            (when par-section
+              (let* ((bounds (my/pdfua--section-bounds))
+                     (ks (my/pdfua--cited-keys (car bounds) (cdr bounds)))
+                     (fn (intern (format "my/pdfua--bibliographie-%d"
+                                         (cl-incf my/pdfua--section-counter)))))
+                (defalias fn (lambda (vars) (member (alist-get 'id vars) ks))
+                  "Per-section bibliography predicate, generated at export.")
+                (end-of-line)
+                (insert (format " :filter %s" fn))))
+            (forward-line 0)
+            (when-let* ((titre (my/pdfua--bib-heading props)))
+              (insert indent "#+LATEX: " titre "\n"))
+            ;; Environnement du préambule : corps et point d'accroche.
+            (insert indent "#+LATEX: \\begin{bibliographieua}\n")
+            ;; Repartir après le mot-clé, sans quoi la recherche suivante
+            ;; le retrouverait indéfiniment.
+            (end-of-line)
+            (insert "\n" indent "#+LATEX: \\end{bibliographieua}")))))))
 
 (add-hook 'org-export-before-parsing-functions
           #'my/pdfua-bibliographies-par-section)

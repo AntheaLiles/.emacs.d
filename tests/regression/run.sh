@@ -163,8 +163,13 @@ for cls in article-ua book-ua; do
   pdf "bibliographie en \\scriptsize (8 pt)" size "Martin," 8
   pdf "titres de bibliographie imprimés" count "Références" 1
   pdf "titre :title imprimé" count "Sources de la section" 1
-  [ $cls = article-ua ] && pdf "résumé en première page" page 1 "Ce résumé doit tenir"
-  [ $cls = article-ua ] && pdf "mots-clés en première page" page 1 "Mots-clés"
+  pdf "résumé en première page" page 1 "Ce résumé doit tenir"
+  pdf "mots-clés en première page" page 1 "Mots-clés"
+  pdf "titre centré sur la page (page de titre sans zone de notes)" centered 1 "Banc de non-régression"
+  pdf "introduction hors de la page de titre" absent 1 "Introduction"
+  pdf "icônes ORCID (authentifié et non authentifié)" images 1 2
+  [ $cls = article-ua ] && pdf "introduction en page 2" page 2 "Introduction"
+  [ $cls = book-ua ] && pdf "introduction en page 3 (impaire)" page 3 "Introduction"
   eval "PAGES_${cls%-ua}=$PAGES"
 done
 

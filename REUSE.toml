@@ -51,8 +51,16 @@ SPDX-License-Identifier = "LGPL-3.0-or-later"
 
 # --- Ressources graphiques --------------------------------------------------
 # À compléter au cas par cas lors de l'ajout d'une image : les logos de
-# tiers (ex. ORCID iD) relèvent de leurs propres conditions et doivent
-# être déclarés ici avec leur titulaire réel.
+# tiers relèvent de leurs propres conditions et sont déclarés ici avec
+# leur titulaire réel.
+#
+# Icônes ORCID iD (\orcidlink et \orcidlinkunauth du préambule) : marque
+# d'ORCID, Inc., employée selon ses règles d'affichage des identifiants.
+[[annotations]]
+path = "assets/ORCID-iD-icon-*.png"
+precedence = "override"
+SPDX-FileCopyrightText = "ORCID, Inc."
+SPDX-License-Identifier = "LicenseRef-ORCID-Trademark"
 
 # --- Style et locale CSL -----------------------------------------------------
 # Style : adaptation du style IEEE du dépôt CSL de Zotero (CC BY-SA 3.0),

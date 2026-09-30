@@ -1,5 +1,5 @@
 #+TITLE: Banc de non-régression
-#+AUTHOR: Test \orcidlink{0000-0002-1825-0097}
+#+AUTHOR: Test\orcidlink{0000-0002-1825-0097}, Autre\orcidlinkunauth{0000-0001-5109-3700}
 #+OPTIONS: toc:nil
 #+LATEX_MODULES: styles-figures
 
