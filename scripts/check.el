@@ -11,11 +11,13 @@
 ;;   2. compilation à octets des modules de lisp/ et perf/, dans un
 ;;      répertoire temporaire (aucun .elc n'est écrit dans le dépôt).
 ;;
-;; Seules les ERREURS font échouer le script : les avertissements
-;; (paquets absents en CI, fonctions d'Emacs 31…) sont affichés mais
-;; tolérés.  init.el et early-init.el ne sont pas compilés : ils
-;; dépendent d'Elpaca et ne sont jamais compilés en usage réel
-;; (user-lisp ne compile que lisp/).
+;; Chaque module est compilé dans un Emacs SÉPARÉ, comme le fait Emacs 31
+;; au démarrage (user-lisp) : dans une session commune, un module chargé
+;; par un autre masquait ses propres avertissements.  Erreurs ET
+;; avertissements font échouer le script : un avertissement s'affiche chez
+;; l'utilisateur dans *Compile-Log* à chaque recompilation.  init.el et
+;; early-init.el ne sont pas compilés : ils dépendent d'Elpaca et ne sont
+;; jamais compilés en usage réel (user-lisp ne compile que lisp/).
 ;;
 ;; Usage, depuis la racine du dépôt :
 ;;   emacs -Q --batch -l scripts/check.el
@@ -53,18 +55,33 @@
              my/check-failures)))))
 
 (defun my/check-compile (file outdir)
-  "Byte-compile FILE into OUTDIR; record a failure on error."
-  (let ((byte-compile-dest-file-function
-         (lambda (src)
-           (expand-file-name (concat (file-name-base src) ".elc") outdir)))
-        (byte-compile-error-on-warn nil))
-    (condition-case err
-        (unless (byte-compile-file file)
-          (push (cons file "compilation : échec (voir ci-dessus)")
-                my/check-failures))
-      (error
-       (push (cons file (format "compilation : %s" (error-message-string err)))
-             my/check-failures)))))
+  "Byte-compile FILE into OUTDIR in a separate Emacs.
+Record a failure on error or warning."
+  (with-temp-buffer
+    (let* ((status
+            (call-process
+             (expand-file-name invocation-name invocation-directory) nil t nil
+             "-Q" "--batch" "-L" (expand-file-name "lisp" my/check-root)
+             "--eval"
+             (format "(setq user-emacs-directory %S
+                            byte-compile-dest-file-function
+                            (lambda (src) (expand-file-name
+                                           (concat (file-name-base src) \".elc\")
+                                           %S)))"
+                     (file-name-as-directory outdir) outdir)
+             "-f" "batch-byte-compile" file))
+           (warnings (progn (goto-char (point-min))
+                            (cl-loop while (re-search-forward
+                                            "^.*\\(?:Warning\\|Error\\):.*$" nil t)
+                                     collect (match-string 0)))))
+      (mapc #'message warnings)
+      (cond
+       ((not (eql status 0))
+        (message "%s" (buffer-string))
+        (push (cons file "compilation : échec") my/check-failures))
+       (warnings
+        (push (cons file (format "compilation : %d avertissement(s)" (length warnings)))
+              my/check-failures))))))
 
 (let* ((all (append (list (expand-file-name "early-init.el" my/check-root)
                           (expand-file-name "init.el" my/check-root))

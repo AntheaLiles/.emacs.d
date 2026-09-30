@@ -122,6 +122,20 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **Démarrage** : les modules de `lisp/` étaient compilés avant `init.el`,
+  et la compilation exécutait leurs `require` (Org, ox-latex, et tout
+  `my-export-async.el`) avant l'activation d'Elpaca : « Cannot load
+  citar-org ». La compilation a lieu après l'initialisation, à la première
+  inactivité ; `my-export-async.el` n'est jamais compilé ; `citar-org` attend
+  `citar` en plus d'Org.
+- **Avertissements de compilation** (*Compile-Log*) : variable
+  `my/pdfua-classes` utilisée avant sa définition, fonction
+  `org-export-output-file-name` non déclarée. `scripts/check.el` compile
+  désormais chaque module dans un Emacs séparé et échoue sur tout
+  avertissement : dans une session commune, ils étaient masqués.
+- **Elpaca** : date des paquets intégrés fixée pour une version de
+  développement d'Emacs (31.1.50), et `compat` pris dans Emacs 31 plutôt
+  qu'installé depuis ELPA (« compat loaded before Elpaca activation »).
 - **Sauvegarde automatique** : l'intervalle était passé de 2 à 30 s et les
   fichiers sous `/mnt/` (disques Windows de WSL) en étaient exclus ; Emacs
   redemandait de sauvegarder des fichiers Org. Le réglage d'origine est

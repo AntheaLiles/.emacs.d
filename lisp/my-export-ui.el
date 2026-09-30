@@ -23,6 +23,8 @@
 
 ;;; Code:
 
+(declare-function org-export-output-file-name "ox" (extension &optional subtreep pub-dir))
+
 (defvar my/export-pdf-file nil
   "Path of the PDF being exported asynchronously, or nil.")
 

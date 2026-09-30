@@ -53,11 +53,17 @@
 
 ;;;; MODULES MAISON (Emacs 31 : user-lisp)
 ;; lisp/ est traité comme un répertoire de paquets locaux : ajouté au
-;; load-path, compilé, et ses cookies ;;;###autoload chargés avant init.el
-;; (remplace compile-angel ; Elpaca compile déjà ses paquets et la
-;; compilation native JIT les convertit).
+;; load-path et ses autoloads chargés avant init.el (remplace compile-angel).
+;;
+;; La COMPILATION, elle, n'a pas lieu ici mais après l'initialisation
+;; (init.el, `my/user-lisp-compile') : avant init.el, compiler un module
+;; exécute ses `require' et chargeait Org avant qu'Elpaca n'ait activé les
+;; paquets (« Cannot load citar-org »).  D'ici là, `load-prefer-newer'
+;; garantit qu'un .el plus récent que son .elc (après un git pull) est
+;; chargé à la place du .elc périmé.
 (setopt user-lisp-directory (expand-file-name "lisp/" user-emacs-directory)
-        user-lisp-auto-scrape t)
+        user-lisp-auto-scrape nil)
+(setq load-prefer-newer t)
 
 ;;;; COMPILATION NATIVE
 ;; Vitesse, compilation JIT et répertoire eln-cache/ : valeurs par défaut.

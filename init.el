@@ -21,6 +21,19 @@
 ;;;; BOOTSTRAP ELPACA
 (with-eval-after-load 'warnings
   (add-to-list 'warning-suppress-types '(elpaca)))
+;; Version de développement d'Emacs (31.1.50…) : Elpaca ne connaît que les
+;; dates des versions publiées et avertit.  On lui donne la date de
+;; compilation d'Emacs, ce qu'il ferait lui-même à défaut.
+(when (and (> (length (version-to-list emacs-version)) 2) emacs-build-time)
+  (defvar elpaca-core-date
+    (list (string-to-number (format-time-string "%Y%m%d" emacs-build-time)))))
+;; compat : depuis Emacs 30, une version minimale est intégrée à Emacs, et
+;; sous Emacs 31 le paquet compat d'ELPA n'apporte rien (tout ce qu'il
+;; rétro-porte existe déjà).  Utiliser celle d'Emacs évite le conflit
+;; signalé par « compat loaded before Elpaca activation ».
+(when (>= emacs-major-version 31)
+  (with-eval-after-load 'elpaca
+    (add-to-list 'elpaca-ignored-dependencies 'compat)))
 (defvar elpaca-installer-version 0.12)
 (defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
 (defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
@@ -66,9 +79,20 @@
 
 ;;;; MODULES MAISON
 ;; lisp/ est le répertoire `user-lisp-directory' (early-init.el) : Emacs 31
-;; l'ajoute au load-path, le compile et en charge les autoloads au démarrage.
+;; l'ajoute au load-path et en charge les autoloads avant init.el.
 ;; La ligne suivante ne sert qu'à un Emacs antérieur.
 (add-to-list 'load-path (expand-file-name "lisp" user-emacs-directory))
+
+;; Compilation et autoloads de lisp/ APRÈS l'initialisation, une fois les
+;; paquets d'Elpaca activés (voir early-init.el) : ne recompile que les
+;; fichiers modifiés depuis la dernière fois.
+(defun my/user-lisp-compile ()
+  "Byte-compile and scrape the autoloads of `user-lisp-directory', if needed."
+  (when (fboundp 'prepare-user-lisp)
+    (prepare-user-lisp)))
+(add-hook 'elpaca-after-init-hook
+          (lambda () (run-with-idle-timer 2 nil #'my/user-lisp-compile)))
+
 (require 'my-paths)
 (require 'my-performance)
 (require 'my-editing)
@@ -489,7 +513,8 @@
    5 nil (lambda () (ignore-errors (citar-get-entries)))))
 
 (use-package citar-embark :ensure t :after citar :config (citar-embark-mode))
-(use-package citar-org :ensure nil :after (:any org oc) :demand t)
+;; Après citar ET org : ne dépend pas de l'ordre de chargement d'Org.
+(use-package citar-org :ensure nil :after (:all citar (:any org oc)) :demand t)
 (use-package citeproc :ensure t)
 
 (use-package howm
