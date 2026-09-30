@@ -91,7 +91,7 @@ vocation à être versionnés dès qu'ils contiennent des fichiers.
 1. **`early-init.el`** — charge le collecteur `perf/perf-start.el` **s'il est
    activé** (voir [Télémétrie](#télémétrie)), suspend le ramasse-miettes et
    `file-name-handler-alist`, déclare `lisp/` comme `user-lisp-directory`
-   (Emacs 31 : compilation et autoloads automatiques des modules), configure
+   (Emacs 31 : `load-path` et autoloads des modules), configure
    la compilation native, désactive `package.el` et supprime barres de
    menu/outils avant l'affichage de la première frame.
 2. **`init.el`** — amorce **Elpaca** (clonage automatique au premier
@@ -105,8 +105,12 @@ vocation à être versionnés dès qu'ils contiennent des fichiers.
    tree-sitter, Org et son écosystème (`org-appear`, `org-glossary`,
    `olivetti`, `citar`, `howm`, `org-noter`), AUCTeX, `cdlatex`, `pdf-tools`,
    `lean4-mode` (via Eglot et `lake serve`).
-4. **`elpaca-after-init-hook`** — charge `custom.el` s'il existe et affiche la
-   durée de démarrage.
+4. **`elpaca-after-init-hook`** — charge `custom.el` s'il existe, affiche la
+   durée de démarrage, puis, à la première inactivité, recompile les modules
+   de `lisp/` modifiés (`prepare-user-lisp`). Cette compilation n'a jamais
+   lieu avant `init.el` : elle chargerait Org avant qu'Elpaca n'active les
+   paquets. `lisp/my-export-async.el`, script d'un autre processus, n'est
+   jamais compilé.
 
 Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 `lisp/my-export-async.el`, qui reconstruit le `load-path` depuis

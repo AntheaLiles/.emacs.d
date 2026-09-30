@@ -40,6 +40,10 @@
 (defconst my/csl-dir (expand-file-name "csl/" user-emacs-directory)
   "Directory holding the versioned CSL style and fallback locales.")
 
+(defconst my/pdfua-classes '("article-ua" "book-ua")
+  "LaTeX classes that enable the PDF/UA export chain.
+See `my/pdfua-active-p'.")
+
 (defconst my/csl-style-file
   (expand-file-name "iso-ieee-localised-collapsed.csl" my/csl-dir)
   "CSL style used for citations and bibliographies.")
@@ -160,9 +164,6 @@ which they share, decides then."
 ;; mais aussi à l'export LaTeX standard (C-c C-e l) d'un document qui
 ;; déclare une classe PDF/UA : c'est la classe qui exprime l'intention.  Un
 ;; document en `article' standard, lui, n'est jamais touché.
-
-(defconst my/pdfua-classes '("article-ua" "book-ua")
-  "LaTeX classes that enable the PDF/UA export chain.")
 
 (defun my/pdfua--buffer-class ()
   "Return the #+LATEX_CLASS declared in the current buffer, or nil."

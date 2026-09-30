@@ -64,8 +64,11 @@ CI sous 31.1 fait foi.
 - `init.el` → Elpaca, puis `require` des modules `lisp/` dans l'ordre :
   paths, performance, editing, windows, appearance, folding, formatting,
   export-ui ; puis déclarations `use-package`.
-- `lisp/` est le `user-lisp-directory` d'Emacs 31 (compilation et autoloads
-  automatiques, déclarés dans `early-init.el`).
+- `lisp/` est le `user-lisp-directory` d'Emacs 31 (déclaré dans
+  `early-init.el`) : autoloads avant `init.el`, compilation APRÈS
+  (`my/user-lisp-compile`, jamais avant l'activation d'Elpaca).
+  `scripts/check.el` compile chaque module seul et refuse tout
+  avertissement, visible sinon dans *Compile-Log* au démarrage.
 - Export PDF/UA : backend dérivé `pdfua` (`C-c C-e u`) défini dans
   `lisp/my-export-config.el` ; classes `article-ua` et `book-ua`
   (`latex/preamble-{article,book}-ua.tex` → `preamble-common.tex`) ;

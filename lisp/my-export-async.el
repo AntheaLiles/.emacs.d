@@ -11,6 +11,10 @@
 ;; Le processus async ne charge PAS init.el.
 ;;
 ;; Les chemins proviennent de my-paths.el (source unique de vérité).
+;;
+;; Jamais compilé (no-byte-compile) : c'est un script d'initialisation d'un
+;; AUTRE processus.  Le compiler dans la session exécuterait ses `require'
+;; (Org, ox-latex, org-glossary…) dans la session elle-même.
 
 ;;; Code:
 
@@ -43,4 +47,10 @@
 (require 'org-glossary nil t)
 
 (provide 'my-export-async)
+
+;; Local Variables:
+;; no-byte-compile: t
+;; no-native-compile: t
+;; End:
+
 ;;; my-export-async.el ends here

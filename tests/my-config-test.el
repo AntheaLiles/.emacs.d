@@ -267,5 +267,45 @@ Lisp, a \"(\" in column 0 starts an outline heading."
     (should-not (string-match-p "inhibit-redisplay t" text))
     (should (string-match-p "user-lisp-directory" text))))
 
+(ert-deftest my/startup-no-compilation-before-init ()
+  "lisp/ is compiled after init, not before (Elpaca not yet active).
+Regression: compiling the modules before init.el ran their `require's,
+loaded Org before Elpaca, and `citar-org' could not be loaded."
+  (let ((text (with-temp-buffer
+                (insert-file-contents (expand-file-name "early-init.el" my/test--root))
+                (buffer-string))))
+    (should (string-match-p "user-lisp-auto-scrape nil" text))
+    (should (string-match-p "(setq load-prefer-newer t)" text)))
+  (let ((forms (my/test--file-forms "init.el")))
+    (should (cl-find-if (lambda (f) (equal (seq-take f 2) '(defun my/user-lisp-compile)))
+                        forms))
+    (should (cl-find-if (lambda (f) (and (equal (seq-take f 2) '(add-hook 'elpaca-after-init-hook))
+                                         (string-match-p "my/user-lisp-compile"
+                                                         (prin1-to-string f))))
+                        forms))
+    ;; citar-org attend citar : indépendant du moment où Org est chargé
+    (let ((citar-org (cl-find-if (lambda (f) (and (eq (car-safe f) 'use-package)
+                                                  (eq (cadr f) 'citar-org)))
+                                 forms)))
+      (should (equal (cadr (memq :after citar-org)) '(:all citar (:any org oc)))))))
+
+(ert-deftest my/export-async-init-never-compiled ()
+  "The async export init file is never byte-compiled in the session.
+Compiling it would run its `require's (Org, ox-latex…) in the session."
+  (let ((byte-compile-dest-file-function (lambda (_) (make-temp-file "x" nil ".elc"))))
+    (should (eq (byte-compile-file (expand-file-name "lisp/my-export-async.el" my/test--root))
+                'no-byte-compile))))
+
+(ert-deftest my/elpaca-dev-build-and-compat ()
+  "Development builds get a core date; Emacs 31 uses its built-in compat."
+  (let ((text (with-temp-buffer
+                (insert-file-contents (expand-file-name "init.el" my/test--root))
+                (buffer-string))))
+    (should (string-match-p "(defvar elpaca-core-date" text))
+    (should (string-match-p "elpaca-ignored-dependencies 'compat" text))
+    ;; Avant l'amorçage d'Elpaca
+    (should (< (string-match "elpaca-core-date" text)
+               (string-match "elpaca-installer-version" text)))))
+
 (provide 'my-config-test)
 ;;; my-config-test.el ends here
