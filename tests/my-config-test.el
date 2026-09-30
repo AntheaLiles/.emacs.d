@@ -88,6 +88,16 @@
     (should (region-active-p))
     (should (equal (buffer-substring (region-beginning) (region-end)) "b\nc"))))
 
+;;;; Sauvegarde automatique
+
+(ert-deftest my/auto-save-visited-every-file ()
+  "Visited files are saved every 2 s, whatever their location.
+Regression: a 30 s interval and a predicate excluding /mnt/ (Windows
+drives under WSL) left Org files unsaved, and Emacs asked to save them."
+  (should (bound-and-true-p auto-save-visited-mode))
+  (should (= auto-save-visited-interval 2))
+  (should-not auto-save-visited-predicate))
+
 ;;;; Repliement
 
 (ert-deftest my/folding-latex-environments ()
