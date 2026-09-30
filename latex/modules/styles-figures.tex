@@ -1,0 +1,52 @@
+% SPDX-FileCopyrightText: 2026 AntheaLiles
+% SPDX-License-Identifier: CC-BY-SA-4.0
+% styles-figures.tex — module d'export « styles-figures » : styles des
+% figures de l'article QDA-to-CWA
+% -----------------------------------------------------------------------------
+% Module d'export (voir lisp/my-export-config.el), par le mot-clé Org
+%     #+LATEX_MODULES: styles-figures
+% Il dépend du module tikz (style qv, trames), chargé automatiquement avant
+% lui s'il n'est pas déjà demandé :
+% requires: tikz
+%
+% Rendu en niveaux de gris, imprimable sans perte. Le statut d'exécution d'une
+% étape est codé deux fois, par le remplissage et par le trait, de sorte
+% qu'aucune distinction ne repose sur la seule teinte :
+%   blanc, trait plein    : exécution par le modèle de langage, sous validation
+%   gris clair, trait plein : décision de l'analyste, seconde proposition du modèle
+%   gris moyen, trait plein : décision de l'analyste seul
+%   blanc, tirets          : opération hors du protocole
+% Aucun texte n'est composé sous \scriptsize (8 pt).
+% -----------------------------------------------------------------------------
+
+\colorlet{fgclair}{black!8}
+\colorlet{fgmoyen}{black!22}
+\colorlet{fgtrait}{black!75}
+\colorlet{fgtexte}{black!88}
+\colorlet{fgdiscret}{black!55}
+
+\tikzset{
+  fg/.style={qv, font=\scriptsize\sffamily, line width=.6pt},
+  fg noeud/.style={rectangle, draw=fgtrait, fill=white, align=center,
+                   inner sep=2.5pt, minimum height=7mm, text=fgtexte},
+  fg auto/.style={fg noeud},
+  fg assiste/.style={fg noeud, fill=fgclair},
+  fg humain/.style={fg noeud, fill=fgmoyen},
+  fg hors/.style={fg noeud, dashed, draw=fgdiscret, text=fgdiscret},
+  fg decision/.style={diamond, aspect=2.4, draw=fgtrait, fill=white,
+                      align=center, inner sep=1pt, text=fgtexte},
+  fg artefact/.style={rectangle, draw=fgdiscret, fill=white, align=left,
+                      inner sep=2pt, text=fgtexte},
+  fg note/.style={align=left, text=fgtexte, inner sep=1pt},
+  fg fleche/.style={draw=fgtrait, -{Stealth[length=4pt,width=3pt]},
+                    line width=.6pt, rounded corners=2pt},
+  fg retour/.style={fg fleche, dashed},
+  fg lien/.style={draw=fgdiscret, line width=.5pt, dashed},
+  fg etiquette/.style={font=\scriptsize\sffamily\itshape, text=fgdiscret,
+                       inner sep=1pt},
+  fg titre/.style={font=\scriptsize\sffamily\bfseries, text=fgtexte,
+                   inner sep=1pt},
+  fg trame/.style={pattern={Lines[angle=45,distance=2.4pt,line width=.35pt]},
+                   pattern color=black!35},
+  fg code/.style={font=\scriptsize\ttfamily},
+}

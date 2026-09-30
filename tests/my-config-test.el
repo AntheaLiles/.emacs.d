@@ -191,6 +191,7 @@ Lisp, a \"(\" in column 0 starts an outline heading."
     (should (member "fontspec" pkgs))
     (should (member "hyperref" pkgs))
     (should-not (member "biblatex" pkgs))
+    (should (member "tikz" pkgs))                ; module latex/modules/tikz.tex
     (should (member "Luciole-Regular.ttf" fonts))
     (should (member "Luciole-Bold-Italic.ttf" fonts))))
 

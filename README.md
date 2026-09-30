@@ -62,6 +62,7 @@ réorganisée sans adapter ces chemins.
 │   ├── preamble-common.tex      Préambule LuaLaTeX PDF/UA-2 commun
 │   ├── preamble-article-ua.tex  Classe « article-ua » (recto seul)
 │   ├── preamble-book-ua.tex     Classe « book-ua » (recto verso, sections sur page impaire)
+│   ├── modules/                 Modules optionnels (#+LATEX_MODULES:) : tikz, styles-figures
 │   ├── old-preamble-article.tex Version précédente, conservée pour comparaison
 │   └── latexmkrc                Réglages latexmk (LuaLaTeX, SyncTeX, run.xml)
 ├── csl/                   Style CSL personnel et locale française
@@ -129,8 +130,11 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 
 ## Export PDF/UA
 
-L'export passe par un backend dérivé de `latex`, **`pdfua`**, qui laisse
-l'export LaTeX standard (`C-c C-e l`) intact :
+C'est la **classe** du document qui active la chaîne PDF/UA : un document
+en `#+LATEX_CLASS: article-ua` ou `book-ua` s'exporte de la même façon par
+`C-c C-e l` ou par le menu dédié `C-c C-e u` (backend `pdfua`, qui prend
+`article-ua` par défaut et offre le brouillon). Un document en `article`
+standard n'est jamais modifié.
 
 | Touche | Action |
 | --- | --- |
@@ -143,19 +147,54 @@ Deux classes, choisies par `#+LATEX_CLASS:` :
 
 | Classe | Mise en page |
 | --- | --- |
-| `article-ua` (défaut) | recto seul, sections enchaînées |
-| `book-ua` | recto verso, chaque section commence sur une page impaire |
+| `article-ua` (défaut) | recto seul, sections enchaînées ; titre, résumé et mots-clés en première page |
+| `book-ua` | recto verso, page de titre dédiée, chaque section commence sur une page impaire |
+
+Chaque page porte « *page* / *total* », première page comprise.
 
 Balisages propres à cette configuration, conservés : remarques en marge
 `[rmq:…]`, éléments de flottant `#+DESC:`, `#+NOTE:`, `#+SOURCE:`,
-conversion automatique des `.drawio` en PDF, titres `:ignore:`.
+conversion automatique des `.drawio` en PDF, titres `:ignore:`,
+`\orcidlink{…}` (icône `assets/ORCID-iD-icon-BW-16x16.png` ; si elle manque,
+le lien s'affiche en texte).
+
+### Modules LaTeX
+
+Des compléments de préambule optionnels se déclarent par document :
+
+```org
+#+LATEX_MODULES: styles-figures
+```
+
+| Module | Contenu |
+| --- | --- |
+| `tikz` | TikZ et pgfplots, palettes accessibles, trames, environnement `qvfigure` (texte alternatif) |
+| `styles-figures` | styles de figures en niveaux de gris (`fg …`) ; charge `tikz` |
+
+Un module est un fichier `latex/modules/NOM.tex`, chargé après le préambule
+de la classe ; ses dépendances se déclarent dans son en-tête par une ligne
+`% requires: …`. Ajouter un module revient à déposer un fichier.
 
 ### Bibliographie
 
 Les citations passent par **CSL** (`oc-csl`, paquet `citeproc`) avec le style
 personnel `csl/iso-ieee-localised-collapsed.csl` : pas de biber, deux passes
 LuaLaTeX. Chaque section de premier niveau reçoit sa propre bibliographie
-(`#+PRINT_BIBLIOGRAPHY:` dans la section).
+(`#+PRINT_BIBLIOGRAPHY:` dans la section), en `\scriptsize`, titrée comme le
+faisait biblatex :
+
+| Mot-clé | Titre |
+| --- | --- |
+| `#+PRINT_BIBLIOGRAPHY:` | « Références » en `\section*` |
+| `… :heading subbibliography` | « Références » en `\subsection*` |
+| `… :heading bibintoc` / `subbibintoc` | idem, ajouté à la table des matières |
+| `… :heading bibnumbered` / `subbibnumbered` | titre numéroté |
+| `… :heading none` | aucun titre |
+| `… :title "Sources"` | remplace « Références » |
+
+Les espaces insécables (avant « [ », « : », dans les guillemets) et le
+trait d'union insécable des pages sont posés par le style CSL lui-même :
+rien à écrire. Le préambule les compose quelle que soit la police.
 
 - **Org** lit `~/wiki/00.resources/references.json`, exporté par Zotero au
   format *Better CSL JSON* (Better BibTeX, « Garder à jour »).

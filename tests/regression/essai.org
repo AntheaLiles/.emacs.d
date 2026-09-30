@@ -1,6 +1,13 @@
 #+TITLE: Banc de non-régression
-#+AUTHOR: Test
+#+AUTHOR: Test \orcidlink{0000-0002-1825-0097}
 #+OPTIONS: toc:nil
+#+LATEX_MODULES: styles-figures
+
+#+begin_abstract
+Ce résumé doit tenir sur la première page, sous le titre.
+#+end_abstract
+
+*Mots-clés* : essai, régression, première page.
 
 * Introduction
 Texte avec une remarque [rmq:marge avec *emphase*, un [[https://example.org][lien]] et [cite:@martin2019]] et une note[fn:1].
@@ -35,6 +42,18 @@ Ce paragraphe doit rester, son titre doit disparaître.
 #+ATTR_LATEX: :width \largeurimpression
 [[./img/photo.pdf]]
 
+#+begin_export latex
+\begin{figure}[htbp]
+\centering
+\begin{qvfigure}{Deux étapes reliées par une flèche}
+  \node[fg auto] (a) {Étape A};
+  \node[fg humain, right=of a] (b) {Étape B};
+  \draw[fg fleche] (a) -- (b);
+\end{qvfigure}
+\caption{Figure TikZ des modules}
+\end{figure}
+#+end_export
+
 * Tableaux
 #+BEGIN_TABLE
 #+DESC: Mesures relevées
@@ -59,7 +78,7 @@ Dans cette section : [cite:@martin2019] et [cite:@noncite].
 
 Calcul : src_python[:exports results]{return 6 * 7}
 
-#+print_bibliography: :heading subbibliography
+#+print_bibliography: :heading subbibintoc :title "Sources de la section"
 
 * Footnotes
 [fn:1] Contenu de la note.

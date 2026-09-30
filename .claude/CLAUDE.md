@@ -69,8 +69,10 @@ CI sous 31.1 fait foi.
 - Export PDF/UA : backend dérivé `pdfua` (`C-c C-e u`) défini dans
   `lisp/my-export-config.el` ; classes `article-ua` et `book-ua`
   (`latex/preamble-{article,book}-ua.tex` → `preamble-common.tex`) ;
-  bibliographie CSL (`csl/`, CSL-JSON). Ne jamais modifier le backend
-  `latex` standard.
+  bibliographie CSL (`csl/`, CSL-JSON). La chaîne s'active par la classe
+  (`my/pdfua-active-p`) : elle vaut aussi pour `C-c C-e l` sur un document
+  `-ua`, jamais pour `article` ni Beamer. Modules de préambule optionnels :
+  `latex/modules/*.tex`, par `#+LATEX_MODULES:`.
 - Export Org asynchrone : processus séparé initialisé par
   `lisp/my-export-async.el` (ne lit pas `init.el`) ; il charge `my-babel`
   et `my-export-config`, comme la session.
