@@ -200,6 +200,40 @@ Without citeproc, the basic processor keeps exports working."
   (should (string-suffix-p ".json" (car org-cite-global-bibliography)))
   (should (file-exists-p (expand-file-name "locales/locales-fr-FR.xml" my/csl-dir))))
 
+(defun my/test--json-file (content)
+  "Return a temporary .json file holding CONTENT."
+  (let ((f (make-temp-file "biblio-" nil ".json")))
+    (with-temp-file f (insert content))
+    f))
+
+(ert-deftest my/export-csl-json-truncated ()
+  "Empty or truncated CSL-JSON files are detected; valid ones pass.
+Regression: an empty references.json failed deep in citeproc with
+`json-end-of-file'."
+  (let ((vide (my/test--json-file ""))
+        (tronque (my/test--json-file "[{\"id\": \"a\", \"title\": \"x\"},\n{\"id\""))
+        (autre (my/test--json-file "@article{a, title={x}}"))
+        (valide (my/test--json-file
+                 (concat "﻿\n[" (make-string 200 ?\s) "{\"id\": \"a\"}]\n"))))
+    (should (my/csl--json-truncated-p vide))
+    (should (my/csl--json-truncated-p tronque))
+    (should (my/csl--json-truncated-p autre))
+    (should-not (my/csl--json-truncated-p valide))
+    (should-not (my/csl--json-truncated-p "/inexistant/references.json"))))
+
+(ert-deftest my/export-csl-check-before-export ()
+  "Exporting a document that cites from a truncated CSL-JSON fails clearly."
+  (let ((my/csl-available-p t)
+        (org-cite-global-bibliography (list (my/test--json-file ""))))
+    (with-temp-buffer
+      (org-mode)
+      (insert "Texte [cite:@a].\n")
+      (should-error (my/csl-check-bibliographies 'latex) :type 'user-error)
+      ;; Sans citation : rien à vérifier
+      (erase-buffer)
+      (insert "Texte sans citation.\n")
+      (should-not (my/csl-check-bibliographies 'latex)))))
+
 ;;;; Filtres de pré-analyse
 
 (ert-deftest my/export-drawio-links-rewritten ()
