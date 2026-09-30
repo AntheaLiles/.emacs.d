@@ -20,6 +20,9 @@
 
 (require 'ert)
 (require 'cl-lib)
+;; Avant tout `let' sur ses variables : sans quoi elles seraient liées
+;; lexicalement, ce qu'Emacs 31 refuse au chargement de bytecomp.
+(require 'bytecomp)
 
 (defconst my/test--root
   (file-name-as-directory
