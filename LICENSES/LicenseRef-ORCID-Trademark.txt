@@ -1,0 +1,18 @@
+ORCID iD icon
+
+ORCID(TM), the ORCID logo, and the iD logo are trademarks of ORCID, Inc.
+and used here with permission.
+
+The files assets/ORCID-iD-icon-*.png are ORCID iD icons from the ORCID
+brand library. They are not covered by the licences of this repository:
+while most materials of the ORCID brand library are released under CC0,
+ORCID's name and trademarks, including its logos and the iD icon, are
+trademarks of ORCID, Inc. and must be used in accordance with ORCID's
+brand guidelines and iD display guidelines:
+
+  https://info.orcid.org/brand-guidelines/
+
+In particular, ORCID logos and iD icons must be used as intended and must
+not be modified or altered in any way. This repository uses them
+unmodified, only to display the ORCID iD of an author next to their name
+(scaled to the height of a capital letter when typeset).

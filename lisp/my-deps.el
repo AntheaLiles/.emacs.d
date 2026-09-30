@@ -70,6 +70,8 @@
      ("Style CSL"             ,(my/deps--repo-file "csl/iso-ieee-localised-collapsed.csl") t)
      ("Locales CSL"           ,my/csl-locales-dir nil)
      ("Icône ORCID"           ,(my/deps--repo-file "assets/ORCID-iD-icon-BW-16x16.png") nil)
+     ("Icône ORCID non authentifié"
+      ,(my/deps--repo-file "assets/ORCID-iD-icon-unauth-BW-16x16.png") nil)
      ("Glossaire"             ,my/glossary-file nil))
    (mapcar (lambda (f) (list "Bibliographie CSL-JSON (Org, citar)" f t))
            my/bibliography-files)

@@ -7,6 +7,9 @@ Usage :
   pdfcheck.py PDF footer              chaque page p porte « p / N »
   pdfcheck.py PDF page N TEXTE        TEXTE figure en page N
   pdfcheck.py PDF count TEXTE K       TEXTE figure K fois dans le document
+  pdfcheck.py PDF absent N TEXTE      TEXTE ne figure pas en page N
+  pdfcheck.py PDF centered N TEXTE    TEXTE est centré sur la page N (± 12 pt)
+  pdfcheck.py PDF images N K          la page N contient K images
   pdfcheck.py PDF size TEXTE TAILLE   TEXTE est composé en TAILLE pt (± 0,3)
 Code de sortie 0 si la vérification réussit ; le détail sur la sortie.
 Requiert PyMuPDF (python3 -m pip install pymupdf).
@@ -35,6 +38,26 @@ elif check == "page":
     ok = cherche in texte(n - 1)
     print(f"« {cherche} » en page {n} : {'oui' if ok else 'non'}")
     sys.exit(0 if ok else 1)
+elif check == "absent":
+    n, cherche = int(args[0]), args[1]
+    ok = cherche not in texte(n - 1)
+    print(f"« {cherche} » absent de la page {n} : {'oui' if ok else 'non'}")
+    sys.exit(0 if ok else 1)
+elif check == "centered":
+    n, cherche = int(args[0]), args[1]
+    page = doc[n - 1]
+    zones = page.search_for(cherche)
+    if not zones:
+        print(f"« {cherche} » introuvable en page {n}")
+        sys.exit(1)
+    centre, milieu = (zones[0].x0 + zones[0].x1) / 2, page.rect.width / 2
+    print(f"« {cherche} » : centre à {centre:.0f} pt, milieu de page {milieu:.0f} pt")
+    sys.exit(0 if abs(centre - milieu) <= 12 else 1)
+elif check == "images":
+    n, k = int(args[0]), int(args[1])
+    nb = len(doc[n - 1].get_image_info())
+    print(f"{nb} image(s) en page {n} (attendu {k})")
+    sys.exit(0 if nb == k else 1)
 elif check == "count":
     cherche, k = args[0], int(args[1])
     n = sum(texte(i).count(cherche) for i in range(len(doc)))

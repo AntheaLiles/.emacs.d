@@ -12,6 +12,9 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Icônes ORCID** (`assets/`, marque d'ORCID, Inc., déclarée dans
+  `REUSE.toml`) et `\orcidlinkunauth{…}` pour un identifiant non
+  authentifié, à côté de `\orcidlink{…}`.
 - **Modules LaTeX** : `#+LATEX_MODULES: tikz styles-figures` charge des
   compléments de préambule de `latex/modules/` (TikZ et pgfplots accessibles,
   styles de figures en niveaux de gris), dépendances comprises (ligne
@@ -122,6 +125,15 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **Bibliographie vide** : un `#+print_bibliography:` unique placé en fin
+  d'article (après des `#+INCLUDE`, donc dans la dernière section) ne listait
+  que les références de cette section, c'est-à-dire aucune. Un mot-clé
+  unique donne désormais la bibliographie de tout le document ; le
+  découpage par section ne vaut qu'à partir de deux.
+- **Page de titre** : elle avait perdu sa géométrie symétrique (zone de
+  notes visible) et l'introduction s'y imprimait. Titre, auteurs, résumé et
+  mots-clés occupent une page symétrique ; le corps commence page 2
+  (`article-ua`) ou page 3, impaire (`book-ua`).
 - **Démarrage** : les modules de `lisp/` étaient compilés avant `init.el`,
   et la compilation exécutait leurs `require` (Org, ox-latex, et tout
   `my-export-async.el`) avant l'activation d'Elpaca : « Cannot load
@@ -154,9 +166,6 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 - **Espaces insécables du style CSL** affichées en boîte « ? » avec une police
   sans ce glyphe : U+00A0, U+202F et U+2011 sont composés par le préambule
   (espace insécable de TeX, espace fine, trait d'union insécable).
-- **`article-ua`** : le titre restait seul en première page (`\newgeometry`
-  impose un saut de page) ; titre, résumé et mots-clés tiennent désormais sur
-  la première page. `book-ua` garde sa page de titre.
 - **Pied de page** : la première page (style `plain` de `\maketitle`)
   n'affichait que son numéro, sans le total ; toutes les pages portent
   « page / total ».

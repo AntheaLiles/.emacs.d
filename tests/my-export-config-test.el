@@ -215,6 +215,20 @@ Regression, present in the original configuration."
     (should (= 2 (cl-count-if (lambda (l) (string-match-p "end{bibliographieua}" l))
                               (split-string out "\n"))))))
 
+(ert-deftest my/export-bibliography-single-is-global ()
+  "A single #+print_bibliography: lists every cited reference.
+Regression: placed at the end of an article (after #+INCLUDE, hence in
+the last section, which cites nothing), it printed an empty list."
+  (let ((out (my/test--run-bib-filter
+              (concat "* Un\nVoir [cite:@a].\n* Deux\nVoir [cite:@b].\n"
+                      "* Conclusion\nSans citation.\n\n#+print_bibliography:\n"))))
+    (should-not (string-match-p ":filter" out))
+    (should (string-match-p "^#\\+LATEX: \\\\section\\*{\\\\refname}$" out))
+    (should (string-match-p "begin{bibliographieua}" out)))
+  ;; Avant tout titre : traitée aussi
+  (let ((out (my/test--run-bib-filter "Texte [cite:@a].\n#+print_bibliography:\n")))
+    (should (string-match-p "begin{bibliographieua}" out))))
+
 (ert-deftest my/export-bibliographies-other-backends-untouched ()
   "The per-section filter only acts for the PDF/UA backend."
   (with-temp-buffer
@@ -360,6 +374,27 @@ Regression: with a font lacking U+00A0 or U+2011, they showed as a box."
     ;; Même pied de page sur les pages en style plain (titre)
     (goto-char (point-min))
     (should (search-forward "\\fancypagestyle{plain}" nil t))))
+
+(ert-deftest my/export-preamble-orcid ()
+  "Both ORCID icons exist, each with its macro, and a text fallback."
+  (dolist (icon '("assets/ORCID-iD-icon-BW-16x16.png"
+                  "assets/ORCID-iD-icon-unauth-BW-16x16.png"))
+    (should (file-exists-p (expand-file-name icon my/test--root))))
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "latex/preamble-common.tex" my/test--root))
+    (dolist (s '("\\newcommand{\\orcidlink}[1]{\\orcidlienicone{\\orcidicon}{#1}}"
+                 "\\newcommand{\\orcidlinkunauth}[1]{\\orcidlienicone{\\orcidiconunauth}{#1}}"
+                 "alt={ORCID iD #2}"
+                 "\\def\\orcidlinkunauth#1{ORCID: #1}"))
+      (goto-char (point-min))
+      (should (search-forward s nil t)))))
+
+(ert-deftest my/export-preamble-title-page ()
+  "The title page stays symmetric until the first \\section (page 2 on)."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "latex/preamble-common.tex" my/test--root))
+    (should (search-forward "\\AddToHookNext{cmd/section/before}" nil t))
+    (should (search-forward "\\restoregeometry\\ifrectoverso\\cleardoublepage\\fi" nil t))))
 
 ;;;; Modules LaTeX
 

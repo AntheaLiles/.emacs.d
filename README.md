@@ -151,16 +151,22 @@ Deux classes, choisies par `#+LATEX_CLASS:` :
 
 | Classe | Mise en page |
 | --- | --- |
-| `article-ua` (défaut) | recto seul, sections enchaînées ; titre, résumé et mots-clés en première page |
-| `book-ua` | recto verso, page de titre dédiée, chaque section commence sur une page impaire |
+| `article-ua` (défaut) | recto seul, sections enchaînées |
+| `book-ua` | recto verso, chaque section commence sur une page impaire |
+
+La première page est une page de titre symétrique, sans zone de notes :
+titre, auteurs, résumé et mots-clés (tout ce qui précède la première
+section). Le corps commence page suivante (`article-ua`) ou page impaire
+suivante (`book-ua`).
 
 Chaque page porte « *page* / *total* », première page comprise.
 
 Balisages propres à cette configuration, conservés : remarques en marge
 `[rmq:…]`, éléments de flottant `#+DESC:`, `#+NOTE:`, `#+SOURCE:`,
 conversion automatique des `.drawio` en PDF, titres `:ignore:`,
-`\orcidlink{…}` (icône `assets/ORCID-iD-icon-BW-16x16.png` ; si elle manque,
-le lien s'affiche en texte).
+`\orcidlink{…}` et, pour un identifiant ORCID non authentifié,
+`\orcidlinkunauth{…}` (icônes de `assets/`, marque d'ORCID, Inc. ; si une
+icône manque, le lien s'affiche en texte).
 
 ### Modules LaTeX
 
@@ -184,8 +190,10 @@ de la classe ; ses dépendances se déclarent dans son en-tête par une ligne
 Les citations passent par **CSL** (`oc-csl`, paquet `citeproc`) avec le style
 personnel `csl/iso-ieee-localised-collapsed.csl` : pas de biber, deux passes
 LuaLaTeX. Chaque section de premier niveau reçoit sa propre bibliographie
-(`#+PRINT_BIBLIOGRAPHY:` dans la section), en `\scriptsize`, titrée comme le
-faisait biblatex :
+(`#+PRINT_BIBLIOGRAPHY:` dans la section) ; un seul `#+PRINT_BIBLIOGRAPHY:`
+dans le document donne une bibliographie unique de toutes les références
+citées. Elle est composée en `\scriptsize` et titrée comme le faisait
+biblatex :
 
 | Mot-clé | Titre |
 | --- | --- |
