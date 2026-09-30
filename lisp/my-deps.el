@@ -77,30 +77,41 @@
            my/bibtex-files)))
 
 ;;;; EXTRACTION DEPUIS LE PRÉAMBULE
+(defun my/deps--preamble-files ()
+  "Return the common preamble and the LaTeX modules (latex/modules/)."
+  (let ((modules (my/deps--repo-file "latex/modules/")))
+    (cons (my/deps--repo-file "latex/preamble-common.tex")
+          (and (file-directory-p modules)
+               (directory-files modules t "\\`[^.].*\\.tex\\'")))))
+
 (defun my/deps--preamble-matches (regexp)
-  "Return the first groups of REGEXP matches in the common preamble."
-  (let ((preamble (my/deps--repo-file "latex/preamble-common.tex")))
-    (when (file-exists-p preamble)
-      (with-temp-buffer
-        ;; % ouvre un commentaire jusqu'à la fin de la ligne
-        (let ((table (make-syntax-table)))
-          (modify-syntax-entry ?% "<" table)
-          (modify-syntax-entry ?\n ">" table)
-          (set-syntax-table table))
-        (insert-file-contents preamble)
-        (cl-loop while (re-search-forward regexp nil t)
-                 ;; `syntax-ppss' déplace le point et peut écraser les
-                 ;; données de correspondance : on préserve les deux.
-                 unless (nth 4 (save-excursion
-                                 (save-match-data (syntax-ppss (match-beginning 0)))))
-                 collect (match-string 1))))))
+  "Return the first groups of REGEXP matches in the preamble and modules."
+  (mapcan (lambda (f) (my/deps--file-matches f regexp))
+          (my/deps--preamble-files)))
+
+(defun my/deps--file-matches (preamble regexp)
+  "Return the first groups of REGEXP matches in the LaTeX file PREAMBLE."
+  (when (file-exists-p preamble)
+    (with-temp-buffer
+      ;; % ouvre un commentaire jusqu'à la fin de la ligne
+      (let ((table (make-syntax-table)))
+        (modify-syntax-entry ?% "<" table)
+        (modify-syntax-entry ?\n ">" table)
+        (set-syntax-table table))
+      (insert-file-contents preamble)
+      (cl-loop while (re-search-forward regexp nil t)
+               ;; `syntax-ppss' déplace le point et peut écraser les
+               ;; données de correspondance : on préserve les deux.
+               unless (nth 4 (save-excursion
+                               (save-match-data (syntax-ppss (match-beginning 0)))))
+               collect (match-string 1)))))
 
 (defun my/deps--latex-packages ()
-  "Return the LaTeX packages loaded by the common preamble."
+  "Return the LaTeX packages loaded by the common preamble and the modules."
   (delete-dups
    (mapcan (lambda (s) (mapcar #'string-trim (split-string s ",")))
            (my/deps--preamble-matches
-            "\\\\usepackage\\(?:\\[[^]]*\\]\\)?{\\([^}]+\\)}"))))
+            "\\\\\\(?:usepackage\\|RequirePackage\\)\\(?:\\[[^]]*\\]\\)?{\\([^}]+\\)}"))))
 
 (defun my/deps--fonts ()
   "Return the font files of the preamble and the Emacs font family."

@@ -1,0 +1,272 @@
+% SPDX-FileCopyrightText: 2026 AntheaLiles
+% SPDX-License-Identifier: CC-BY-SA-4.0
+% tikz.tex — module d'export « tikz » : préambule TikZ de quickViz
+% -----------------------------------------------------------------------------
+% Module d'export (voir lisp/my-export-config.el) : chargé APRÈS le préambule
+% de la classe (article-ua, book-ua) par le mot-clé Org
+%     #+LATEX_MODULES: tikz
+%
+% Compilateur : LuaLaTeX. Compatible avec \DocumentMetadata{pdfstandard=ua-2,
+% testphase=phase-III} : les figures produites ici portent un texte alternatif.
+%
+% Ce préambule ne définit aucune couleur « décorative ». Les palettes qu'il
+% installe suivent les règles que le manuscrit établit :
+%   — la palette qualitative fait varier la teinte le long de l'axe jaune-bleu,
+%     que les déficiences les plus répandues laissent intact ;
+%   — la palette séquentielle fait varier la luminance, la saturation restant
+%     constante plutôt que croissante ;
+%   — la palette divergente porte deux branches symétriques autour d'un neutre ;
+%   — aucune information ne doit reposer sur la seule couleur : les styles de
+%     trame ci-dessous servent au codage redondant.
+% -----------------------------------------------------------------------------
+
+\RequirePackage{tikz}
+\RequirePackage{pgfplots}
+\pgfplotsset{compat=1.18}
+
+\usetikzlibrary{%
+  arrows.meta,          % pointes de flèche paramétrables
+  positioning,          % right=of, below=of
+  calc,                 % coordonnées calculées
+  fit,                  % nœud englobant
+  backgrounds,          % plans d'arrière-plan
+  shapes.geometric,     % losange des nœuds de décision
+  shapes.misc,          % rectangle à coins arrondis
+  patterns,             % trames nommees classiques (crosshatch, grid)
+  patterns.meta,        % trames parametrables (Lines, Dots)
+  decorations.pathreplacing, % accolades
+  decorations.markings,
+  matrix,               % grille des matrices de graphiques
+  trees,                % arbre de sélection
+  graphs,
+  quotes}
+
+% --- Longueur de référence -----------------------------------------------------
+% Le manuscrit appelle ses figures avec width=0.9\largeurimpression. On reprend
+% la même longueur si elle existe, la largeur de texte sinon.
+\providecommand{\largeurimpression}{\textwidth}
+\newlength{\qvlargeur}
+\AtBeginDocument{\setlength{\qvlargeur}{\largeurimpression}}
+
+% --- Palettes ------------------------------------------------------------------
+% Qualitative : huit teintes séparées sur l'axe jaune-bleu, éprouvées sous
+% protanopie et deutéranopie. Source : Okabe et Ito, /Color universal design/.
+\definecolor{qvcat1}{HTML}{0072B2}   % bleu
+\definecolor{qvcat2}{HTML}{E69F00}   % orange
+\definecolor{qvcat3}{HTML}{009E73}   % vert bleuté
+\definecolor{qvcat4}{HTML}{CC79A7}   % rose
+\definecolor{qvcat5}{HTML}{56B4E9}   % bleu ciel
+\definecolor{qvcat6}{HTML}{D55E00}   % vermillon
+\definecolor{qvcat7}{HTML}{F0E442}   % jaune
+\definecolor{qvcat8}{HTML}{000000}   % noir
+
+% Séquentielle : luminance décroissante, teinte et saturation constantes.
+\definecolor{qvseq1}{HTML}{DEEBF7}
+\definecolor{qvseq2}{HTML}{C6DBEF}
+\definecolor{qvseq3}{HTML}{9ECAE1}
+\definecolor{qvseq4}{HTML}{6BAED6}
+\definecolor{qvseq5}{HTML}{4292C6}
+\definecolor{qvseq6}{HTML}{2171B5}
+\definecolor{qvseq7}{HTML}{084594}
+
+% Divergente : deux branches symétriques autour d'un neutre clair.
+\definecolor{qvdivA3}{HTML}{8C510A}
+\definecolor{qvdivA2}{HTML}{BF812D}
+\definecolor{qvdivA1}{HTML}{DFC27D}
+\definecolor{qvdiv0}{HTML}{F5F5F5}
+\definecolor{qvdivB1}{HTML}{80CDC1}
+\definecolor{qvdivB2}{HTML}{35978F}
+\definecolor{qvdivB3}{HTML}{01665E}
+
+% Mise en évidence : un accent, le reste en gris. La palette d'évidence du
+% manuscrit ne compte que deux valeurs — ce qu'on regarde, et le reste.
+\definecolor{qvaccent}{HTML}{D55E00}
+\definecolor{qvfond}{HTML}{BDBDBD}
+
+% Encre et repères : jamais du noir pur pour les traits de structure.
+\definecolor{qvencre}{HTML}{1A1A1A}
+\definecolor{qvgrille}{HTML}{D9D9D9}
+\definecolor{qvaxe}{HTML}{595959}
+\definecolor{qvalerte}{HTML}{B2182B}
+
+% --- Codage redondant ----------------------------------------------------------
+% Une trame double la couleur partout où l'information ne doit pas dépendre
+% d'elle seule. Elle demande des aplats assez larges pour que sa densité se voie.
+% Une trame ne remplace pas la couleur, elle s'y ajoute : TikZ ne pose qu'un
+% remplissage par chemin, d'où le style « fond », qui peint l'aplat avant la
+% trame. L'usage est donc : [qv barre, fond=qvcat1, trame A=white].
+\tikzset{
+  fond/.style={preaction={fill=#1}},
+  fond/.default=white,
+  trame A/.style={pattern={Lines[angle=45,distance=3pt,line width=.6pt]},
+                  pattern color=#1},
+  trame A/.default=qvencre,
+  trame B/.style={pattern={Lines[angle=-45,distance=3pt,line width=.6pt]},
+                  pattern color=#1},
+  trame B/.default=qvencre,
+  trame C/.style={pattern={Dots[distance=3pt,radius=.7pt]}, pattern color=#1},
+  trame C/.default=qvencre,
+  trame D/.style={pattern=crosshatch, pattern color=#1},
+  trame D/.default=qvencre,
+  trame vide/.style={fill=white},
+}
+
+% --- Texte alternatif ----------------------------------------------------------
+% Une figure TikZ n'est pas décrite par elle-même. L'environnement qvfigure
+% prend le texte alternatif en premier argument obligatoire et le pose sur la
+% structure de la figure lorsque tagpdf est actif ; sinon il l'ignore
+% silencieusement, de sorte que le document compile aussi hors mode balisé.
+\newcommand{\qvalt}[1]{%
+  \ifdefined\tagpdfsetup
+    \tagpdfsetup{tabsorder=structure}%
+    \tagstructbegin{tag=Figure,alt={#1}}\tagmcbegin{artifact}%
+  \fi}
+\newcommand{\qvaltfin}{%
+  \ifdefined\tagpdfsetup
+    \tagmcend\tagstructend
+  \fi}
+
+% #1 (optionnel) : options passées à tikzpicture. #2 : texte alternatif.
+\NewDocumentEnvironment{qvfigure}{O{} m}
+  {\qvalt{#2}\begin{tikzpicture}[qv, #1]}
+  {\end{tikzpicture}\qvaltfin}
+
+% --- Style de base -------------------------------------------------------------
+% Tout dessin de ce manuscrit s'ouvre sur le style « qv ». Il fixe la police, la
+% graisse des traits et la couleur d'encre, de sorte qu'aucune figure n'ait à
+% les redéclarer.
+\tikzset{
+  qv/.style={
+    line width=.7pt,
+    draw=qvencre,
+    text=qvencre,
+    font=\footnotesize\sffamily,
+    >={Stealth[length=5pt,width=4pt]},
+    every node/.append style={inner sep=3pt},
+  },
+}
+
+% --- Arbre de sélection --------------------------------------------------------
+% Les nœuds de l'arbre de la figure « Parcours de sélection ». La question est un
+% losange, la condition un rectangle, la feuille — un type de graphique — un
+% rectangle à coins arrondis. La forme double la couleur : l'arbre reste lisible
+% en noir et blanc.
+\tikzset{
+  qv question/.style={
+    diamond, aspect=2.2, draw=qvaxe, fill=qvseq1,
+    align=center, inner sep=2pt, minimum width=26mm},
+  qv condition/.style={
+    rectangle, draw=qvaxe, fill=white,
+    align=center, minimum width=24mm, minimum height=7mm},
+  qv feuille/.style={
+    rounded corners=2pt, draw=qvencre, fill=qvseq2,
+    align=center, minimum width=24mm, minimum height=7mm},
+  qv feuille repli/.style={
+    qv feuille, fill=white, dashed},
+  qv branche/.style={draw=qvaxe, -{Stealth[length=4pt]}, rounded corners=3pt},
+  qv etiquette/.style={
+    font=\scriptsize\sffamily\itshape, fill=white, inner sep=1.5pt,
+    midway, sloped=false},
+}
+
+% --- Schémas de graphiques -----------------------------------------------------
+% Les fiches illustrent des principes de tracé, non des données réelles. Ces
+% styles servent à dessiner un graphique schématique : deux axes, une grille
+% discrète, des marques.
+\tikzset{
+  qv axe/.style={draw=qvaxe, line width=.6pt, -{Stealth[length=4pt,width=3pt]}},
+  qv grille/.style={draw=qvgrille, line width=.4pt},
+  qv reperes/.style={draw=qvaxe, line width=.5pt},
+  qv barre/.style={draw=qvencre, line width=.5pt, fill=qvcat1},
+  qv barre fond/.style={qv barre, fill=qvfond},
+  qv barre accent/.style={qv barre, fill=qvaccent},
+  qv ligne/.style={draw=qvcat1, line width=1.1pt, line cap=round,
+                   line join=round},
+  qv ligne second/.style={qv ligne, draw=qvcat2, dash pattern=on 3pt off 2pt},
+  qv ligne tiers/.style={qv ligne, draw=qvcat3, dash pattern=on 1pt off 1.6pt},
+  qv point/.style={circle, fill=qvcat1, draw=none, inner sep=0pt,
+                   minimum size=3pt},
+  qv aire/.style={fill=qvseq3, draw=qvcat1, line width=.7pt, fill opacity=.55},
+  qv zero/.style={draw=qvencre, line width=.9pt},
+  qv annotation/.style={font=\scriptsize\sffamily, text=qvaxe, align=left},
+  qv etiquette directe/.style={font=\scriptsize\sffamily, inner sep=1.5pt,
+                               anchor=west},
+  qv alerte/.style={draw=qvalerte, line width=.8pt, dash pattern=on 2pt off 2pt},
+  qv rupture/.style={decorate,
+    decoration={zigzag, amplitude=.8pt, segment length=3pt}},
+}
+
+% Un cadre d'axes complet en une commande : \qvcadre{largeur}{hauteur}
+\newcommand{\qvcadre}[2]{%
+  \draw[qv axe] (0,0) -- (#1,0);
+  \draw[qv axe] (0,0) -- (0,#2);}
+
+% --- Matrice de graphiques -----------------------------------------------------
+% Les panneaux d'une matrice partagent leurs bornes et leurs axes. Ce style ne
+% pose qu'un titre d'ordonnées par ligne et un titre d'abscisses par colonne.
+\tikzset{
+  qv panneau/.style={draw=qvgrille, fill=white, line width=.5pt,
+                     minimum width=22mm, minimum height=16mm, anchor=south west},
+  qv titre panneau/.style={font=\scriptsize\sffamily, anchor=north west,
+                           text=qvaxe},
+  qv matrice/.style={matrix of nodes, nodes in empty cells,
+                     column sep=2mm, row sep=2mm, nodes={qv panneau}},
+}
+
+% --- Zone de prescription et repères de lecture --------------------------------
+\tikzset{
+  qv zone/.style={fill=qvseq1, draw=none, rounded corners=2pt},
+  qv zone alerte/.style={fill=qvalerte!8, draw=qvalerte, dash pattern=on 2pt off 2pt,
+                         rounded corners=2pt},
+  qv accolade/.style={decorate, decoration={brace, amplitude=4pt, raise=2pt},
+                      draw=qvaxe, line width=.5pt},
+  qv legende/.style={draw=qvgrille, fill=white, rounded corners=2pt,
+                     inner sep=4pt, font=\scriptsize\sffamily},
+  qv puce/.style={rectangle, minimum width=7pt, minimum height=7pt,
+                  inner sep=0pt, draw=qvencre, line width=.4pt},
+}
+
+% --- Chemin de décision --------------------------------------------------------
+% Ce que le moteur expose : la forme retenue, les formes écartées, et le motif de
+% l'écart. La forme écartée se barre et porte sa contrainte violée ; elle n'est
+% pas seulement grisée, faute de quoi le motif ne serait pas lisible.
+\tikzset{
+  qv retenue/.style={qv feuille, fill=qvseq2, draw=qvencre, line width=1pt},
+  qv ecartee/.style={qv feuille, fill=white, draw=qvfond, text=qvaxe},
+  qv motif/.style={font=\scriptsize\sffamily\itshape, text=qvalerte,
+                   anchor=west, align=left},
+  qv egalite/.style={draw=qvaxe, line width=.5pt, dash pattern=on 1pt off 1.5pt},
+}
+
+% --- Pgfplots : accord avec les règles du manuscrit ----------------------------
+% L'échelle des barres part de zéro, la grille reste discrète, et les séries
+% portent une marque distincte en plus de leur couleur.
+\pgfplotsset{
+  qv/.style={
+    width=.9\qvlargeur, height=.55\qvlargeur,
+    axis lines=left,
+    axis line style={draw=qvaxe, line width=.6pt},
+    tick align=outside, tick style={draw=qvaxe, line width=.5pt},
+    every tick label/.append style={font=\scriptsize\sffamily, text=qvaxe},
+    label style={font=\footnotesize\sffamily},
+    title style={font=\footnotesize\sffamily\bfseries, align=left},
+    grid=major, grid style={draw=qvgrille, line width=.4pt},
+    % La légende se pose hors du cadre pour ne jamais recouvrir une marque.
+    % L'étiquetage direct reste préférable sur une figure imprimée : voir le
+    % composant « Annotation » du manuscrit.
+    legend style={at={(1.02,1)}, anchor=north west,
+                  draw=qvgrille, fill=white, font=\scriptsize\sffamily,
+                  cells={anchor=west}},
+    legend cell align=left,
+    cycle list={%
+      {qvcat1, mark=*, mark size=1.6pt},
+      {qvcat2, mark=square*, mark size=1.5pt, dash pattern=on 3pt off 2pt},
+      {qvcat3, mark=triangle*, mark size=1.9pt, dash pattern=on 1pt off 1.6pt},
+      {qvcat4, mark=diamond*, mark size=1.8pt, dash pattern=on 4pt off 1.5pt},
+      {qvcat6, mark=pentagon*, mark size=1.7pt, dash pattern=on 2pt off 2pt on 5pt off 2pt},
+    },
+  },
+  qv barres/.style={qv, ybar, ymin=0, bar width=8pt,
+                    every axis plot/.append style={fill=qvcat1, draw=qvencre,
+                                                   line width=.4pt}},
+}

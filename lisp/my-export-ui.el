@@ -6,13 +6,15 @@
 ;; This file is not part of GNU Emacs.
 
 ;;; Commentary:
-;; Affiche le journal d'un export PDF/UA asynchrone dans une fenêtre à
-;; droite, puis le remplace par le PDF quand la compilation réussit.
+;; Affiche le journal d'un export PDF asynchrone (C-c C-e u p ou l p) dans
+;; une fenêtre à droite, puis le remplace par le PDF quand la compilation réussit.
 ;;
 ;; Aucun minuteur : Org appelle `org-export-add-to-stack' à chaque étape
 ;; d'un export asynchrone, et c'est là qu'on se branche.
 ;;   - lancement : SOURCE est le buffer du processus, PROCESS est vivant ;
-;;   - succès    : SOURCE est le chemin du fichier produit (le PDF) ;
+;;   - succès    : SOURCE est le chemin du fichier produit (le PDF) ; les
+;;                 erreurs LaTeX du journal (latexmk -f produit un PDF même
+;;                 après une erreur) sont signalées ;
 ;;   - échec     : SOURCE est le buffer du processus, PROCESS est terminé.
 ;;
 ;; Garde-fous : la fenêtre n'est ouverte que pour un export asynchrone et
@@ -52,6 +54,16 @@ ORIG-FUN is called with ASYNC, SUBTREEP and ARGS unchanged."
       (with-selected-window window
         (find-file buffer-or-file)))))
 
+(defun my/export-ui--latex-errors (pdf)
+  "Return the number of LaTeX errors in the log written next to PDF.
+latexmk runs with -f: a PDF is produced even when LaTeX reported errors."
+  (let ((log (concat (file-name-sans-extension pdf) ".log")))
+    (if (file-readable-p log)
+        (with-temp-buffer
+          (insert-file-contents log)
+          (how-many "^! " (point-min) (point-max)))
+      0)))
+
 (defun my/export-ui-on-stack (source _backend &optional process)
   "After advice for `org-export-add-to-stack', following one export.
 SOURCE and PROCESS tell the stage of the export (see Commentary)."
@@ -64,7 +76,11 @@ SOURCE and PROCESS tell the stage of the export (see Commentary)."
      ((and (stringp source)
            (string= (expand-file-name source) my/export-pdf-file))
       (my/export-ui--show my/export-window source)
-      (message "Export terminé : %s" (file-name-nondirectory source))
+      (let ((errors (my/export-ui--latex-errors source)))
+        (if (zerop errors)
+            (message "Export terminé : %s" (file-name-nondirectory source))
+          (message "Export terminé AVEC %d erreur(s) LaTeX : voir %s" errors
+                   (concat (file-name-base source) ".log"))))
       (setq my/export-pdf-file nil))
      ;; Échec : garder le journal visible
      ((and (bufferp source) (processp process))
@@ -73,6 +89,9 @@ SOURCE and PROCESS tell the stage of the export (see Commentary)."
       (setq my/export-pdf-file nil)))))
 
 (advice-add 'my/pdfua-export-to-pdf :around #'my/export-ui-start)
+;; C-c C-e l p : même affichage (la chaîne PDF/UA vaut aussi pour ce menu)
+(with-eval-after-load 'ox-latex
+  (advice-add 'org-latex-export-to-pdf :around #'my/export-ui-start))
 (with-eval-after-load 'ox
   (advice-add 'org-export-add-to-stack :after #'my/export-ui-on-stack))
 

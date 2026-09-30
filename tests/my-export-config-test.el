@@ -59,6 +59,34 @@
   (let ((out (org-export-string-as "#+LATEX_CLASS: book-ua\nTexte." 'pdfua)))
     (should (string-match-p "preamble-book-ua\\.tex" out))))
 
+(ert-deftest my/export-standard-latex-with-ua-class ()
+  "C-c C-e l on a document declaring a PDF/UA class runs the PDF/UA chain.
+Regression: only the `pdfua' backend (C-c C-e u) applied it, so the usual
+C-c C-e l export lost margin notes, bibliography layout and inline code."
+  (let ((out (org-export-string-as
+              "#+LATEX_CLASS: article-ua\nVoir ~a b~ et [rmq:note]." 'latex))
+        (case-fold-search nil))
+    (should (string-match-p "preamble-article-ua\\.tex" out))
+    (should (string-match-p (regexp-quote "\\CodeInline{a\\ b}") out))
+    (should (string-match-p (regexp-quote "\\RMQ{note}") out))
+    (should (string-match-p (regexp-quote "\\def\\uacodeinline{}") out))))
+
+(ert-deftest my/export-pdfua-active-p ()
+  "The chain applies to pdfua, and to latex with a PDF/UA class only."
+  (should (my/pdfua-active-p 'pdfua '(:latex-class "article-ua")))
+  (should (my/pdfua-active-p 'latex '(:latex-class "book-ua")))
+  (should-not (my/pdfua-active-p 'latex '(:latex-class "article")))
+  (should-not (my/pdfua-active-p 'html '(:latex-class "article-ua")))
+  (should-not (my/pdfua-active-p nil '(:latex-class "article-ua")))
+  (with-temp-buffer
+    (org-mode)
+    (insert "#+LATEX_CLASS: book-ua\nTexte.\n")
+    (should (my/pdfua-active-p 'latex))
+    (erase-buffer)
+    (insert "Texte.\n")
+    (should-not (my/pdfua-active-p 'latex))
+    (should (my/pdfua-active-p 'pdfua))))
+
 (ert-deftest my/export-standard-latex-untouched ()
   "The standard LaTeX backend keeps Org's rendering: no PDF/UA filter."
   (let ((out (my/test--body "Voir ~a b~ et [rmq:note]." 'latex))
@@ -67,10 +95,12 @@
     (should-not (string-match-p "CodeInline\\|RMQ" out))))
 
 (ert-deftest my/export-pdf-process-safe ()
-  "latexmk runs without -shell-escape nor -f, with the repository latexmkrc."
+  "latexmk runs without -shell-escape, with -f, and the repository latexmkrc.
+Regression: without -f, one LaTeX error stopped latexmk after the first
+pass, leaving every cross-reference and the page total as ??."
   (let ((cmd (car org-latex-pdf-process)))
     (should-not (string-match-p "shell-escape" cmd))
-    (should-not (string-match-p " -f\\b" cmd))
+    (should (string-match-p " -f " cmd))
     (should (string-match-p (regexp-quote my/latexmkrc-file) cmd))))
 
 ;;;; Code en ligne
@@ -174,8 +204,11 @@ Regression, present in the original configuration."
     (should (funcall (nth 0 fns) '((id . "c"))))
     (should-not (funcall (nth 1 fns) '((id . "b"))))
     (should (funcall (nth 1 fns) '((id . "a"))))
-    ;; Titre seulement avec :heading ; environnement toujours
-    (should (= 1 (cl-count-if (lambda (l) (string-match-p "subsection\\*{\\\\refname}" l))
+    ;; Titres comme biblatex : \subsection* avec subbibliography, \section*
+    ;; sans :heading ; environnement toujours
+    (should (= 1 (cl-count-if (lambda (l) (string-match-p "^#\\+LATEX: \\\\subsection\\*{\\\\refname}$" l))
+                              (split-string out "\n"))))
+    (should (= 1 (cl-count-if (lambda (l) (string-match-p "^#\\+LATEX: \\\\section\\*{\\\\refname}$" l))
                               (split-string out "\n"))))
     (should (= 2 (cl-count-if (lambda (l) (string-match-p "begin{bibliographieua}" l))
                               (split-string out "\n"))))
@@ -188,6 +221,17 @@ Regression, present in the original configuration."
     (insert "* Un\n[cite:@a]\n#+print_bibliography:\n")
     (my/pdfua-bibliographies-par-section 'html)
     (should (equal (buffer-string) "* Un\n[cite:@a]\n#+print_bibliography:\n"))))
+
+(ert-deftest my/export-bibliography-headings-like-biblatex ()
+  "Bibliography titles follow biblatex's headings, :title included."
+  (should (equal (my/pdfua--bib-heading "") "\\section*{\\refname}"))
+  (should (equal (my/pdfua--bib-heading ":heading subbibliography")
+                 "\\subsection*{\\refname}"))
+  (should-not (my/pdfua--bib-heading ":heading none"))
+  (should (equal (my/pdfua--bib-heading ":heading subbibintoc :title \"Sources\"")
+                 "\\subsection*{Sources}\\addcontentsline{toc}{subsection}{Sources}"))
+  (should (equal (my/pdfua--bib-heading ":heading bibnumbered") "\\section{\\refname}"))
+  (should-error (my/pdfua--bib-heading ":heading inconnu") :type 'user-error))
 
 (ert-deftest my/export-csl-configuration ()
   "Citations go through the versioned CSL style, from CSL-JSON.
@@ -302,6 +346,54 @@ into [[x.pdf]], which Org reads as an internal link."
 
 ;;;; Affichage de fin d'export
 
+;;;; Préambule
+
+(ert-deftest my/export-preamble-nonbreaking-characters ()
+  "The preamble typesets the CSL's non-breaking characters in any font.
+Regression: with a font lacking U+00A0 or U+2011, they showed as a box."
+  (with-temp-buffer
+    (insert-file-contents (expand-file-name "latex/preamble-common.tex" my/test--root))
+    (dolist (c '("00a0" "202f" "2011"))
+      (goto-char (point-min))
+      (should (re-search-forward (concat "^\\\\newunicodechar{\\^\\^\\^\\^" c "}")
+                                 nil t)))
+    ;; Même pied de page sur les pages en style plain (titre)
+    (goto-char (point-min))
+    (should (search-forward "\\fancypagestyle{plain}" nil t))))
+
+;;;; Modules LaTeX
+
+(ert-deftest my/export-latex-modules-available ()
+  "The tikz and styles-figures modules exist; dependencies come first."
+  (should (member "tikz" (my/latex-modules-available)))
+  (should (member "styles-figures" (my/latex-modules-available)))
+  (should (equal (my/latex--module-requires "styles-figures") '("tikz")))
+  (should (equal (my/latex-modules-resolve '("styles-figures")) '("tikz" "styles-figures")))
+  (should (equal (my/latex-modules-resolve '("tikz" "styles-figures" "tikz"))
+                 '("tikz" "styles-figures")))
+  (should-error (my/latex-modules-resolve '("absent")) :type 'user-error))
+
+(ert-deftest my/export-latex-modules-cycle ()
+  "A dependency cycle is reported instead of looping."
+  (let ((my/latex-modules-dir (file-name-as-directory (make-temp-file "modules-" t))))
+    (with-temp-file (expand-file-name "a.tex" my/latex-modules-dir) (insert "% requires: b\n"))
+    (with-temp-file (expand-file-name "b.tex" my/latex-modules-dir) (insert "% requires: a\n"))
+    (should-error (my/latex-modules-resolve '("a")) :type 'user-error)))
+
+(ert-deftest my/export-latex-modules-keyword ()
+  "#+LATEX_MODULES: becomes \\input lines in the preamble, for any LaTeX export."
+  (dolist (backend '(pdfua latex))
+    (let ((out (org-export-string-as
+                "#+LATEX_MODULES: styles-figures\nTexte." backend))
+          (case-fold-search nil))
+      (should (string-match-p
+               (concat (regexp-quote "\\input{") ".*modules/tikz\\.tex}\n"
+                       (regexp-quote "\\input{") ".*modules/styles-figures\\.tex}")
+               out))
+      ;; Dans le préambule, pas dans le corps
+      (should (< (string-match "modules/tikz" out)
+                 (string-match (regexp-quote "\\begin{document}") out))))))
+
 (ert-deftest my/export-ui-follows-stack ()
   "The UI reacts to the three stages reported through the export stack."
   (let* ((pdf (expand-file-name "doc.pdf" temporary-file-directory))
@@ -325,6 +417,21 @@ into [[x.pdf]], which Org reads as an internal link."
             (my/export-ui-on-stack buf nil p))
           (should-not my/export-pdf-file))
       (kill-buffer buf))))
+
+(ert-deftest my/export-ui-reports-latex-errors ()
+  "A PDF compiled despite LaTeX errors (latexmk -f) is not a silent success."
+  (let* ((dir (make-temp-file "ui-" t))
+         (pdf (expand-file-name "doc.pdf" dir)))
+    (should (= 0 (my/export-ui--latex-errors pdf)))          ; pas de journal
+    (with-temp-file (expand-file-name "doc.log" dir)
+      (insert "(./doc.tex\n! LaTeX Error: File `x.png' not found.\n"
+              "l.5 \\includegraphics{x.png}\n! Undefined control sequence.\n"))
+    (should (= 2 (my/export-ui--latex-errors pdf)))
+    (let ((my/export-pdf-file pdf) (my/export-window nil) msg)
+      (cl-letf (((symbol-function 'message)
+                 (lambda (fmt &rest args) (setq msg (apply #'format fmt args)))))
+        (my/export-ui-on-stack pdf 'latex))
+      (should (string-match-p "AVEC 2 erreur" msg)))))
 
 (provide 'my-export-config-test)
 ;;; my-export-config-test.el ends here

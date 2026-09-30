@@ -26,6 +26,8 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             texlive-luatex texlive-latex-extra texlive-lang-french \
             texlive-fonts-recommended texlive-science texlive-plain-generic \
-            latexmk fonts-dejavu-core fonts-lmodern fontconfig python3
+            latexmk fonts-dejavu-core fonts-lmodern fontconfig python3 python3-pip
+      - name: PyMuPDF (vérifications sur le PDF)
+        run: python3 -m pip install --user --break-system-packages pymupdf
       - name: Banc de non-régression
         run: tests/regression/run.sh

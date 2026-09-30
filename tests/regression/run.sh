@@ -16,6 +16,10 @@
 # python3 (Babel) et git (dépendances Lisp clonées au premier passage dans
 # ~/.cache/emacs-d-regress, ou $REGRESS_DEPS).
 #
+# Vérifications sur le PDF (pagination, corps de la bibliographie, première
+# page) : tests/regression/pdfcheck.py, qui requiert PyMuPDF ; sans lui, elles
+# sont ignorées et signalées.
+#
 # Adaptations automatiques, signalées à l'écran :
 #   - polices Luciole / Iosevka absentes → DejaVu et Latin Modern Math ;
 #   - TeX Live antérieur à 2024 → balisage phase-III retiré (non supporté).
@@ -26,7 +30,9 @@ HERE=$ROOT/tests/regression
 # Hors du dépôt : reuse lint examinerait ces clones.
 DEPS=${REGRESS_DEPS:-${XDG_CACHE_HOME:-$HOME/.cache}/emacs-d-regress}
 WORK=$(mktemp -d)
-trap 'rm -rf "$WORK"' EXIT
+# REGRESS_KEEP=1 : conserver les fichiers produits, pour inspection
+if [ -n "${REGRESS_KEEP:-}" ]; then echo "  (fichiers conservés dans $WORK)"
+else trap 'rm -rf "$WORK"' EXIT; fi
 fail=0
 
 ok()   { printf '  ✓ %s\n' "$1"; }
@@ -61,6 +67,7 @@ chmod +x "$HERE/stub-bin/drawio"
 # Copie de latex/ : polices de repli si les vraies manquent
 mkdir -p "$WORK/emacsd"
 cp -r "$ROOT/latex" "$WORK/emacsd/"
+[ -d "$ROOT/assets" ] && cp -r "$ROOT/assets" "$WORK/emacsd/"
 if ! fc-list 2>/dev/null | grep -q "Luciole"; then
   echo "  (polices Luciole/Iosevka absentes : substitution par DejaVu)"
   perl -0pi -e 's/\\setmainfont\{Luciole-Regular\.ttf\}\[[^\]]*\]/\\setmainfont{DejaVu Serif}/;
@@ -68,6 +75,17 @@ if ! fc-list 2>/dev/null | grep -q "Luciole"; then
                 s/\\setmathfont\{Luciole-Math\.otf\}/\\setmathfont{latinmodern-math.otf}/' \
     "$WORK/emacsd/latex/preamble-common.tex"
 fi
+PDFCHECK=0
+if python3 -c 'import fitz' 2>/dev/null; then PDFCHECK=1
+elif [ -n "${CI:-}" ]; then ko "PyMuPDF requis en CI (vérifications sur le PDF)"
+else echo "  (PyMuPDF absent : vérifications sur le PDF ignorées)"; fi
+pdf() { # pdf DESCRIPTION ARGS… : vérification pdfcheck.py sur le dernier PDF
+  local d=$1; shift
+  [ $PDFCHECK = 1 ] || { printf '  - %s (ignoré)\n' "$d"; return; }
+  local out; out=$(python3 "$HERE/pdfcheck.py" "$PDF" "$@" 2>&1)
+  if [ $? = 0 ]; then ok "$d — $out"; else ko "$d — $out"; fi
+}
+
 TLYEAR=$(lualatex --version | sed -n 's/.*TeX Live \([0-9]\{4\}\).*/\1/p' | head -1)
 STRIP_TAGGING=0
 if [ "${TLYEAR:-0}" -lt 2024 ]; then
@@ -77,7 +95,9 @@ fi
 
 # --- Export ------------------------------------------------------------------
 export_doc() { # export_doc CLASSE FORME-LISP
-  local cls=$1 form=$2 dir=$WORK/out-$cls
+  # Deux « local » : dans un seul, $cls vaudrait encore celui de l'appelant.
+  local cls=$1 form=$2
+  local dir=$WORK/out-$cls
   rm -rf "$dir"; cp -r "$WORK/doc" "$dir"
   [ "$cls" = book-ua ] && sed -i '1i #+LATEX_CLASS: book-ua' "$dir/essai.org"
   ( cd "$dir" && HOME=$WORK/home PATH=$HERE/stub-bin:$PATH emacs -Q --batch \
@@ -92,13 +112,15 @@ compile_doc() { # compile_doc CLASSE → variables PASSES, ERREURS, PAGES
   local dir=$WORK/out-$1
   perl -pi -e "s#\Q$ROOT/\E#$WORK/emacsd/#g" "$dir/essai.tex"
   [ $STRIP_TAGGING = 1 ] && perl -0pi -e 's/,\s*pdfstandard=ua-2//; s/,\s*testphase=phase-III//' "$dir/essai.tex"
-  ( cd "$dir" && latexmk -lualatex -interaction=nonstopmode -output-directory=build \
+  ( cd "$dir" && latexmk -lualatex -f -interaction=nonstopmode -output-directory=build \
                    -r "$ROOT/latex/latexmkrc" essai.tex > latexmk.log 2>&1 )
   LATEXMK=$?
   PASSES=$(grep -c "Run number .* of rule 'lualatex'" "$dir/latexmk.log")
   ERREURS=$(grep -c '^!' "$dir/build/essai.log" 2>/dev/null)
   PAGES=$(sed -n 's/^Output written on .*(\([0-9]*\) page.*/\1/p' "$dir/build/essai.log" 2>/dev/null | tail -1)
   PAGES=${PAGES:-0}
+  PDF=$dir/build/essai.pdf
+  MANQUANTS=$(grep -c "Missing character" "$dir/build/essai.log" 2>/dev/null)
 }
 
 for cls in article-ua book-ua; do
@@ -119,7 +141,13 @@ for cls in article-ua book-ua; do
   check "code en ligne (\\CodeInline) et lua-ul demandé" \
     bash -c "grep -q 'CodeInline{x\\\\_1' '$T' && grep -q '^\\\\def\\\\uacodeinline{}' '$T'"
   check "Babel : calcul Python exécuté" grep -q 'Calcul : \\texttt{42}' "$T"
-  check "deux bibliographies, titrées" test "$(grep -c 'begin{bibliographieua}' "$T")" = 2
+  check "deux bibliographies" test "$(grep -c 'begin{bibliographieua}' "$T")" = 2
+  check "titres à la biblatex (subbibliography ; subbibintoc et :title)" \
+    bash -c "grep -q '^\\\\subsection\*{\\\\refname}\$' '$T' \
+             && grep -q 'subsection\*{Sources de la section}\\\\addcontentsline{toc}{subsection}' '$T'"
+  check "modules : tikz chargé avant styles-figures" \
+    bash -c "grep -n 'modules/\(tikz\|styles-figures\)\.tex' '$T' | cut -d: -f2- | tr '\n' ' ' \
+             | grep -q 'tikz\.tex.*styles-figures\.tex'"
   # Org ≤ 9.7 : \citeprocitem ; Org 9.8 (Emacs 31) : \cslcitation
   check "citations CSL [n]" grep -Eq '\[\\(citeprocitem|cslcitation)\{' "$T"
   check "bibliographie de la section 3 : seulement ses références" \
@@ -130,8 +158,47 @@ for cls in article-ua book-ua; do
     test "$LATEXMK" = 0 -a "$ERREURS" = 0
   check "au plus 3 passes lualatex, sans biber ($PASSES)" \
     bash -c "[ $PASSES -le 3 ] && ! grep -q \"rule 'biber\" '$WORK/out-$cls/latexmk.log'"
+  check "aucun caractère manquant dans les polices ($MANQUANTS)" test "$MANQUANTS" = 0
+  pdf "numéro de page et total sur chaque page" footer
+  pdf "bibliographie en \\scriptsize (8 pt)" size "Martin," 8
+  pdf "titres de bibliographie imprimés" count "Références" 1
+  pdf "titre :title imprimé" count "Sources de la section" 1
+  [ $cls = article-ua ] && pdf "résumé en première page" page 1 "Ce résumé doit tenir"
+  [ $cls = article-ua ] && pdf "mots-clés en première page" page 1 "Mots-clés"
   eval "PAGES_${cls%-ua}=$PAGES"
 done
+
+echo "== export LaTeX standard (C-c C-e l) d'un document article-ua"
+export_doc std "(progn (goto-char (point-min)) (insert \"#+LATEX_CLASS: article-ua\\n\") (org-latex-export-to-latex))"
+S=$WORK/out-std/essai.tex
+check "classe article-ua" grep -q 'preamble-article-ua\.tex' "$S"
+check "chaîne PDF/UA appliquée (remarques, bibliographies, code en ligne)" \
+  bash -c "grep -q 'RMQ{marge' '$S' && grep -q 'begin{bibliographieua}' '$S' && grep -q 'CodeInline{x' '$S'"
+
+echo "== export LaTeX standard d'un document en article : intact"
+export_doc std "(org-latex-export-to-latex)"
+check "classe article, sans traitement PDF/UA" \
+  bash -c "grep -q 'documentclass\\[11pt\\]{article}' '$S' && ! grep -q 'RMQ{\\|bibliographieua\\|CodeInline' '$S'"
+
+echo "== renvois résolus malgré une erreur LaTeX (latexmk -f)"
+mkdir -p "$WORK/erreur"
+cat > "$WORK/erreur/t.tex" <<'TEX'
+\documentclass{article}
+\usepackage{graphicx,lastpage}
+\begin{document}
+Voir figure \ref{fig:a}, page \pageref{LastPage}.
+\includegraphics{image-absente.png}
+\begin{figure}\caption{A}\label{fig:a}\end{figure}
+\end{document}
+TEX
+# Même commande que org-latex-pdf-process
+CMD=$(cd "$ROOT" && emacs -Q --batch -L lisp \
+        --eval "(setq user-emacs-directory \"$ROOT/\")" \
+        --eval "(progn (require 'my-export-config) (princ (car org-latex-pdf-process)))" 2>/dev/null)
+CMD=${CMD//%o/.}
+( cd "$WORK/erreur" && eval "${CMD//%f/t.tex}" >/dev/null 2>&1 )
+PDF=$WORK/erreur/t.pdf
+pdf "« figure 1, page 1 » et non « ?? »" page 1 "Voir figure 1, page 1."
 
 echo "== mise en page"
 check "book-ua plus long qu'article-ua (sections sur page impaire : $PAGES_book > $PAGES_article)" \

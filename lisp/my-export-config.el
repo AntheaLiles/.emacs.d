@@ -45,12 +45,17 @@
   "CSL style used for citations and bibliographies.")
 
 ;;;; PIPELINE LUALATEX
-;; Ni -shell-escape (aucun paquet du préambule ne l'exige ; il permettrait à
-;; un document d'exécuter des commandes), ni -f (un PDF produit malgré des
-;; erreurs passerait pour un succès).
+;; Pas de -shell-escape : aucun paquet du préambule ne l'exige, et il
+;; permettrait à un document d'exécuter des commandes.
+;;
+;; -f (forcer les passes malgré une erreur) est indispensable : sans lui,
+;; latexmk s'arrête après la PREMIÈRE passe à la moindre erreur (image
+;; absente…), avant que les renvois et le total de pages soient résolus : le
+;; PDF, produit quand même, affichait « figure ?? » et « 3 / ?? ».  Les
+;; erreurs restent signalées : Org lit le journal après la compilation.
 (setopt org-latex-compiler "lualatex"
         org-latex-pdf-process
-        (list (concat "latexmk -lualatex -interaction=nonstopmode"
+        (list (concat "latexmk -lualatex -f -interaction=nonstopmode"
                       " -output-directory=%o -r "
                       (shell-quote-argument my/latexmkrc-file)
                       " %f"))
@@ -80,8 +85,8 @@
 ;; ligne.  Le contenu d'engrave-faces a déjà tous ses caractères spéciaux
 ;; échappés : c'est du LaTeX ordinaire, que l'on peut passer en argument à
 ;; \CodeInline sans les contraintes du verbatim.  Seules les espaces sont
-;; rendues explicites (\ ), pour ne pas être fusionnées.  Filtre installé
-;; par le backend `pdfua' (voir plus bas).
+;; rendues explicites (\ ), pour ne pas être fusionnées.  Filtre global,
+;; actif pour les classes PDF/UA seulement (voir plus bas).
 
 (defconst my/org-latex-inline-code-regexp
   (concat "\\`\\(?:\\\\texttt\\|\\\\Verb\\(?:\\[[^]]*\\]\\)?\\)"
@@ -89,12 +94,15 @@
   "Match ox-latex output for inline code: \\texttt{…} or \\Verb[…]{…}.
 Group 1 is the code, group 2 the trailing blanks added by the exporter.")
 
-(defun my/org-latex-inline-code (text _backend _info)
-  "Rewrap inline code TEXT in \\CodeInline.
-Installed on `code' and `inline-src-block' objects by the `pdfua'
-backend, titles included (they are exported through an anonymous
-backend that inherits the same filters)."
-  (if (string-match my/org-latex-inline-code-regexp text)
+(defun my/org-latex-inline-code (text backend info)
+  "Rewrap inline code TEXT in \\CodeInline when the PDF/UA chain applies.
+That is, when `my/pdfua-active-p' holds for BACKEND and INFO.  Installed
+globally on `code' and `inline-src-block' objects.  Titles are exported
+through an anonymous backend (BACKEND is nil): the class read from INFO,
+which they share, decides then."
+  (if (and (or (my/pdfua-active-p backend info)
+               (member (plist-get info :latex-class) my/pdfua-classes))
+           (string-match my/org-latex-inline-code-regexp text))
       (let ((code (match-string 1 text))
             (blanks (match-string 2 text)))
         (concat "\\CodeInline{"
@@ -145,6 +153,34 @@ backend that inherits the same filters)."
               '("\\subsubsection{%s}" . "\\subsubsection*{%s}")
               '("\\paragraph{%s}" . "\\paragraph*{%s}")
               '("\\subparagraph{%s}" . "\\subparagraph*{%s}"))))
+
+;;;; ACTIVATION DE LA CHAÎNE PDF/UA
+;; La chaîne (remarques, éléments de flottant, bibliographies par section,
+;; code en ligne, sortie finale) s'applique au backend `pdfua' (C-c C-e u),
+;; mais aussi à l'export LaTeX standard (C-c C-e l) d'un document qui
+;; déclare une classe PDF/UA : c'est la classe qui exprime l'intention.  Un
+;; document en `article' standard, lui, n'est jamais touché.
+
+(defconst my/pdfua-classes '("article-ua" "book-ua")
+  "LaTeX classes that enable the PDF/UA export chain.")
+
+(defun my/pdfua--buffer-class ()
+  "Return the #+LATEX_CLASS declared in the current buffer, or nil."
+  (car (last (cdr (assoc "LATEX_CLASS"
+                         (org-collect-keywords '("LATEX_CLASS")))))))
+
+(defun my/pdfua-active-p (backend &optional info)
+  "Non-nil when the PDF/UA chain applies to an export through BACKEND.
+That is the `pdfua' backend, or any LaTeX backend exporting a document
+whose class is one of `my/pdfua-classes'.  The class is read from INFO
+when given, from the buffer's #+LATEX_CLASS otherwise."
+  (and (symbolp backend) backend        ; titres : backend anonyme, ignoré
+       (or (org-export-derived-backend-p backend 'pdfua)
+           (and (org-export-derived-backend-p backend 'latex)
+                (not (org-export-derived-backend-p backend 'beamer))
+                (member (if info (plist-get info :latex-class)
+                          (my/pdfua--buffer-class))
+                        my/pdfua-classes)))))
 
 ;;;; CITATIONS (CSL)
 ;; Bibliographie Org en CSL-JSON (export Better CSL JSON de Zotero) ; la .bib
@@ -226,6 +262,84 @@ _BACKEND is the export backend (unused but required by the hook)."
 
 (add-hook 'org-export-before-processing-functions
           #'my/org-babel-confirm-off-for-export)
+
+;;;; MODULES LATEX
+;; Compléments de préambule optionnels, choisis par document :
+;;
+;;   #+LATEX_MODULES: tikz styles-figures
+;;
+;; Chaque module est un fichier latex/modules/NOM.tex, chargé (\input) après
+;; le préambule de la classe, dans l'ordre demandé.  Un module déclare ses
+;; dépendances dans son en-tête, par une ligne « % requires: A B » : elles
+;; sont chargées avant lui, une seule fois.  Ajouter un module = déposer un
+;; fichier dans latex/modules/.  Vaut pour tout export LaTeX.
+
+(defconst my/latex-modules-dir (expand-file-name "modules/" my/latex-dir)
+  "Directory holding the optional LaTeX preamble modules.")
+
+(defun my/latex-modules-available ()
+  "Return the names of the available LaTeX modules."
+  (and (file-directory-p my/latex-modules-dir)
+       (mapcar #'file-name-base
+               (directory-files my/latex-modules-dir nil "\\`[^.].*\\.tex\\'"))))
+
+(defun my/latex--module-file (name)
+  "Return the file of module NAME; signal a `user-error' if it does not exist."
+  (let ((file (expand-file-name (concat name ".tex") my/latex-modules-dir)))
+    (unless (file-exists-p file)
+      (user-error "Module LaTeX inconnu : %s (disponibles : %s)"
+                  name (string-join (my/latex-modules-available) ", ")))
+    file))
+
+(defun my/latex--module-requires (name)
+  "Return the modules that module NAME requires, from its header."
+  (with-temp-buffer
+    (insert-file-contents (my/latex--module-file name) nil 0 4096)
+    (let (deps)
+      (while (re-search-forward "^%[ \t]*requires:[ \t]*\\(.*\\)$" nil t)
+        (setq deps (append deps (split-string (match-string 1) "[ \t,]+" t))))
+      deps)))
+
+(defun my/latex-modules-resolve (names)
+  "Return NAMES with their dependencies, each dependency before its user.
+Every module appears once.  Signal a `user-error' on a dependency cycle."
+  (let (result)
+    (cl-labels ((visit (name path)
+                  (when (member name path)
+                    (user-error "Dépendance circulaire entre modules LaTeX : %s"
+                                (string-join (reverse (cons name path)) " → ")))
+                  (unless (member name result)
+                    (dolist (dep (my/latex--module-requires name))
+                      (visit dep (cons name path)))
+                    (setq result (append result (list name))))))
+      (dolist (name names) (visit name nil)))
+    result))
+
+(defun my/org-latex-modules (backend)
+  "Replace #+LATEX_MODULES: keywords by the \\input of the modules.
+Only for LaTeX BACKEND exports.  Keywords from a #+SETUPFILE count too."
+  (when (and (symbolp backend) backend
+             (org-export-derived-backend-p backend 'latex))
+    (let* ((case-fold-search t)
+           (names (mapcan (lambda (v) (split-string v "[ \t,]+" t))
+                          (cdr (assoc "LATEX_MODULES"
+                                      (org-collect-keywords '("LATEX_MODULES"))))))
+           (inputs (mapconcat
+                    (lambda (m)
+                      (format "#+LATEX_HEADER: \\input{%s}\n" (my/latex--module-file m)))
+                    (my/latex-modules-resolve names) ""))
+           (where nil))
+      (when names
+        (save-excursion
+          (goto-char (point-max))
+          ;; Retirer les mots-clés locaux ; insérer à la place du premier.
+          (while (re-search-backward "^[ \t]*#\\+latex_modules:.*\n?" nil t)
+            (setq where (point))
+            (replace-match ""))
+          (goto-char (or where (point-min)))
+          (insert inputs))))))
+
+(add-hook 'org-export-before-processing-functions #'my/org-latex-modules)
 
 ;;;; TITRES :ignore:
 ;; Définition unique, partagée par Emacs et par le processus d'export
@@ -321,7 +435,7 @@ rien.  Rend nil si le crochet n'est jamais refermé."
 (defun my/org-remarques-en-marge (backend)
   "Convertit les [rmq:texte] en remarques marginales pour l'export PDF/UA.
 BACKEND est le backend d'export."
-  (when (org-export-derived-backend-p backend 'pdfua)
+  (when (my/pdfua-active-p backend)
     (let ((regions (my/org-regions-de-bloc))
           (occurrences '())
           (case-fold-search t))
@@ -414,7 +528,7 @@ BACKEND est le backend d'export."
 (defun my/org-items-flottants (backend)
   "Replie les items de flottant là où Org les attend.
 BACKEND est le backend d'export."
-  (when (org-export-derived-backend-p backend 'pdfua)
+  (when (my/pdfua-active-p backend)
     (save-excursion
       (goto-char (point-min))
       (let ((case-fold-search t))
@@ -556,14 +670,51 @@ BACKEND est le backend d'export."
 ;; ne connaît que des sous-bibliographies filtrées (:filter PRÉDICAT).  Avant
 ;; l'analyse, on relève les clés citées dans chaque section de premier niveau
 ;; qui contient un #+print_bibliography:, on fabrique un prédicat qui ne
-;; retient que ces clés, et on l'ajoute au mot-clé.  Avec :heading, un titre
-;; « Références » (\refname de babel) précède la liste, composée dans
-;; l'environnement bibliographieua du préambule.
+;; retient que ces clés, et on l'ajoute au mot-clé.  La liste est composée
+;; dans l'environnement bibliographieua du préambule (\scriptsize).
+;;
+;; Titre : comme biblatex (voir `my/pdfua--bib-heading'), « Références »
+;; (\refname de babel) en \section* par défaut, en \subsection* avec
+;; :heading subbibliography ; :title "Texte" remplace \refname.
 ;;
 ;; Le prédicat reçoit les variables CSL de l'entrée : son identifiant (`id')
 ;; n'y figure que pour une bibliographie CSL-JSON.  citeproc-el n'en pose pas
 ;; sur les entrées converties depuis BibTeX : d'où le CSL-JSON côté Org.
 ;; Numérotation : continue sur tout le document (propre à CSL).
+
+(defconst my/pdfua--bib-headings
+  '(("bibliography"      "section*")
+    ("subbibliography"   "subsection*")
+    ("bibintoc"          "section*"    "section")
+    ("subbibintoc"       "subsection*" "subsection")
+    ("bibnumbered"       "section")
+    ("subbibnumbered"    "subsection")
+    ("none"))
+  "Headings of biblatex (standard.bbx, article classes).
+Each entry is (NAME COMMAND TOC-LEVEL): the sectioning COMMAND that sets
+the title, and the table of contents level it is added to, if any.")
+
+(defun my/pdfua--bib-heading (props)
+  "Return the LaTeX title of a bibliography, given its keyword PROPS.
+PROPS is the text after #+print_bibliography:, e.g. \":heading
+subbibliography\".  Headings and defaults follow biblatex: without
+:heading, the title is set as \\section*.  :title \"Text\" replaces
+\\refname.  Return nil for :heading none."
+  (let* ((name (if (string-match ":heading[ \t]+\\([^ \t:]+\\)" props)
+                   (match-string 1 props)
+                 "bibliography"))
+         (spec (cdr (or (assoc name my/pdfua--bib-headings)
+                        (user-error "Titre de bibliographie inconnu : %s (valeurs : %s)"
+                                    name (mapconcat #'car my/pdfua--bib-headings
+                                                    ", ")))))
+         (title (if (string-match
+                     ":title[ \t]+\\(?:\"\\([^\"]*\\)\"\\|\\([^ \t:]+\\)\\)" props)
+                    (or (match-string 1 props) (match-string 2 props))
+                  "\\refname")))
+    (when spec
+      (concat (format "\\%s{%s}" (car spec) title)
+              (when (cadr spec)
+                (format "\\addcontentsline{toc}{%s}{%s}" (cadr spec) title))))))
 
 (defvar my/pdfua--section-counter 0
   "Counter used to name the per-section bibliography predicates.")
@@ -583,7 +734,7 @@ BACKEND est le backend d'export."
 (defun my/pdfua-bibliographies-par-section (backend)
   "Restrict each section's #+print_bibliography: to the keys cited there.
 Only for the PDF/UA BACKEND."
-  (when (org-export-derived-backend-p backend 'pdfua)
+  (when (my/pdfua-active-p backend)
     (setq my/pdfua--section-counter 0)
     (save-excursion
       (goto-char (point-min))
@@ -611,8 +762,8 @@ Only for the PDF/UA BACKEND."
                   (end-of-line)
                   (insert (format " :filter %s" fn))
                   (forward-line 0)
-                  (when (string-match-p ":heading" props)
-                    (insert indent "#+LATEX: \\subsection*{\\refname}\n"))
+                  (when-let* ((titre (my/pdfua--bib-heading props)))
+                    (insert indent "#+LATEX: " titre "\n"))
                   ;; Environnement du préambule : police et point d'accroche
                   ;; (cslbibliography n'existe qu'à partir d'Org 9.8).
                   (insert indent "#+LATEX: \\begin{bibliographieua}\n")
@@ -645,11 +796,18 @@ width after the user's one, and the last key wins in graphicx."
          (concat "\\includegraphics[" (string-join kept ",") "]"))))
    output t t))
 
-(defun my/pdfua-final-output (output _backend info)
+(defun my/pdfua-final-output (output backend info)
   "Adjust the LaTeX OUTPUT of a PDF/UA export according to INFO.
+Only when `my/pdfua-active-p' holds for BACKEND and INFO.
 Declare \\uacodeinline when the document uses inline code, so that the
 preamble loads lua-ul only then; in draft mode (:ua-draft), drop PDF/UA
 tagging from \\DocumentMetadata to compile faster."
+  (when (my/pdfua-active-p backend info)
+    (setq output (my/pdfua--final-output output info)))
+  output)
+
+(defun my/pdfua--final-output (output info)
+  "Apply the PDF/UA adjustments to OUTPUT, according to INFO."
   (when (string-match-p "\\\\CodeInline{" output)
     (setq output (replace-regexp-in-string
                   "^\\\\documentclass.*$" "\\&\n\\\\def\\\\uacodeinline{}"
@@ -665,8 +823,10 @@ tagging from \\DocumentMetadata to compile faster."
   output)
 
 ;;;; BACKEND PDF/UA
-;; Backend dérivé de `latex' : les filtres propres à cette chaîne ne touchent
-;; ni l'export LaTeX standard ni Beamer.  Menu : C-c C-e u.
+;; Backend dérivé de `latex' : menu C-c C-e u, classe article-ua par défaut
+;; et profil brouillon.  Les traitements PDF/UA dépendent de la classe (voir
+;; ACTIVATION DE LA CHAÎNE PDF/UA) : ils valent aussi pour C-c C-e l sur un
+;; document article-ua ou book-ua, jamais pour article ni Beamer.
 
 (org-export-define-derived-backend 'pdfua 'latex
   :menu-entry
@@ -680,11 +840,14 @@ tagging from \\DocumentMetadata to compile faster."
         (?d "PDF brouillon (sans balisage)" my/pdfua-export-draft-to-pdf)))
   :options-alist
   '((:latex-class "LATEX_CLASS" nil "article-ua" t)
-    (:ua-draft nil "ua-draft" nil))
-  :filters-alist
-  '((:filter-code . my/org-latex-inline-code)
-    (:filter-inline-src-block . my/org-latex-inline-code)
-    (:filter-final-output . my/pdfua-final-output)))
+    (:ua-draft nil "ua-draft" nil)))
+
+;; Filtres globaux (pas de :filters-alist) : ils se règlent sur la classe,
+;; pour servir aussi à C-c C-e l.
+
+(add-hook 'org-export-filter-code-functions #'my/org-latex-inline-code)
+(add-hook 'org-export-filter-inline-src-block-functions #'my/org-latex-inline-code)
+(add-hook 'org-export-filter-final-output-functions #'my/pdfua-final-output)
 
 ;;;###autoload
 (defun my/pdfua-export-to-latex

@@ -12,6 +12,18 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Modules LaTeX** : `#+LATEX_MODULES: tikz styles-figures` charge des
+  compléments de préambule de `latex/modules/` (TikZ et pgfplots accessibles,
+  styles de figures en niveaux de gris), dépendances comprises (ligne
+  `% requires:` de chaque module).
+- Titres de bibliographie **comme biblatex** : « Références » en `\section*`
+  par défaut, en `\subsection*` avec `:heading subbibliography`, et
+  `none`, `bibintoc`, `subbibintoc`, `bibnumbered`, `subbibnumbered`,
+  `:title "…"`.
+- Banc de non-régression : vérifications sur le PDF compilé (pagination,
+  corps de la bibliographie, première page) par `tests/regression/pdfcheck.py`
+  (PyMuPDF) ; export `C-c C-e l` d'un document `article-ua` et d'un document
+  `article` ; `REGRESS_KEEP=1` conserve les fichiers produits.
 - **Backend d'export `pdfua`** (dérivé de `latex`, menu `C-c C-e u`) : `.tex`,
   PDF, PDF ouvert et **PDF brouillon** sans balisage (`C-c C-e u d`).
   L'export LaTeX standard (`C-c C-e l`) n'est plus modifié par la
@@ -111,6 +123,30 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **Renvois « ?? » et total de pages absent** : sans `-f`, latexmk s'arrêtait
+  après la première passe à la moindre erreur LaTeX (une image absente, comme
+  l'icône ORCID), avant la résolution des `\ref` et de `LastPage` ; le PDF,
+  produit quand même, affichait « (figure ??) ». `-f` est rétabli, et
+  l'affichage de fin d'export signale désormais les erreurs du journal
+  (« Export terminé AVEC n erreur(s) LaTeX »), y compris pour `C-c C-e l p`.
+- **`C-c C-e l` sur un document `article-ua` ou `book-ua`** : seule la classe
+  s'appliquait ; remarques en marge, éléments de flottant, bibliographies par
+  section (`\scriptsize`, titre « Références ») et code en ligne ne
+  passaient que par `C-c C-e u`. La chaîne PDF/UA dépend désormais de la
+  classe du document, quel que soit le menu.
+- **Espaces insécables du style CSL** affichées en boîte « ? » avec une police
+  sans ce glyphe : U+00A0, U+202F et U+2011 sont composés par le préambule
+  (espace insécable de TeX, espace fine, trait d'union insécable).
+- **`article-ua`** : le titre restait seul en première page (`\newgeometry`
+  impose un saut de page) ; titre, résumé et mots-clés tiennent désormais sur
+  la première page. `book-ua` garde sa page de titre.
+- **Pied de page** : la première page (style `plain` de `\maketitle`)
+  n'affichait que son numéro, sans le total ; toutes les pages portent
+  « page / total ».
+- **ORCID** : l'icône porte un texte alternatif (PDF/UA), et son absence ne
+  fait plus échouer la compilation (lien en texte).
+- Banc de non-régression : le test du profil brouillon relisait le `.tex`
+  d'un export précédent (variable `local` mal évaluée) et ne vérifiait rien.
 - **Bibliographie CSL-JSON vide ou tronquée** : l'export échouait dans
   citeproc sur un `json-end-of-file` sans explication. Le fichier est
   désormais vérifié avant l'export (début « [ », fin « ] », sans le lire en
