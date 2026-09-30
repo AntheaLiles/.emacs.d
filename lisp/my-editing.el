@@ -104,17 +104,11 @@ A negative N moves them up."
 (add-hook 'after-save-hook #'executable-make-buffer-file-executable-if-script-p)
 
 ;;;; AUTO-SAVE
-;; Toutes les 30 s (et non 2) : chaque sauvegarde relance after-save-hook
-;; (howm, Flymake, Eglot, diff-hl).  Jamais pour les fichiers distants
-;; (Tramp) ni sur les disques Windows de WSL (/mnt/…, lents à écrire).
-(defun my/auto-save-visited-p ()
-  "Non-nil if the current buffer's file may be saved automatically."
-  (and buffer-file-name
-       (not (file-remote-p buffer-file-name))
-       (not (string-prefix-p "/mnt/" (file-truename buffer-file-name)))))
-
-(setopt auto-save-visited-interval 30
-        auto-save-visited-predicate #'my/auto-save-visited-p)
+;; Sauvegarde automatique des fichiers visités toutes les 2 s, pour TOUS les
+;; fichiers (disques Windows /mnt/… de WSL compris) : l'usage quotidien s'y
+;; appuie.  Ne pas espacer ni restreindre sans le demander (régression de
+;; septembre 2026 : 30 s et /mnt/ exclu, Emacs redemandait de sauvegarder).
+(setopt auto-save-visited-interval 2)
 (auto-save-visited-mode 1)
 
 ;;;; LOCKFILES

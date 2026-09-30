@@ -103,8 +103,7 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 - `my-deps.el` réécrit : synchrone, à la demande (`M-x my/deps-check`), sans
   cache BLAKE3 ni processus d'arrière-plan ; vérifie aussi les paquets LaTeX
   et les polices du préambule.
-- Auto-sauvegarde des fichiers visités toutes les 30 s (hors TRAMP et
-  `/mnt/`), sauvegardes de `recentf` et `save-place` toutes les 5 min ; le
+- Sauvegardes de `recentf` et `save-place` toutes les 5 min ; le
   `kill-ring` n'est plus enregistré par `savehist`.
 - Renommages d'Org 9.8 : `org-src-content-indentation`,
   `org-startup-with-link-previews`.
@@ -123,6 +122,10 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **Sauvegarde automatique** : l'intervalle était passé de 2 à 30 s et les
+  fichiers sous `/mnt/` (disques Windows de WSL) en étaient exclus ; Emacs
+  redemandait de sauvegarder des fichiers Org. Le réglage d'origine est
+  rétabli (2 s, tous les fichiers), avec un test.
 - **Renvois « ?? » et total de pages absent** : sans `-f`, latexmk s'arrêtait
   après la première passe à la moindre erreur LaTeX (une image absente, comme
   l'icône ORCID), avant la résolution des `\ref` et de `LastPage` ; le PDF,
