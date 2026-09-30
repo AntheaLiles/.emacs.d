@@ -111,6 +111,11 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **Bibliographie CSL-JSON vide ou tronquée** : l'export échouait dans
+  citeproc sur un `json-end-of-file` sans explication. Le fichier est
+  désormais vérifié avant l'export (début « [ », fin « ] », sans le lire en
+  entier), avec un message qui le nomme et indique de relancer l'export
+  Better CSL JSON de Zotero.
 - **Largeur des images** : `#+ATTR_LATEX: :options width=…` produisait deux
   clés `width=` dans `\includegraphics` ; seule la première est gardée.
 - **Emphase finale** : une remarque `[rmq:…]` ou un élément `#+NOTE:`

@@ -168,6 +168,48 @@ backend that inherits the same filters)."
             my/csl-locales-dir
           (expand-file-name "locales/" my/csl-dir)))
 
+;; Un CSL-JSON vide ou tronqué (export Zotero pas encore écrit, interrompu,
+;; ou en cours de réécriture) faisait échouer citeproc sur un obscur
+;; « json-end-of-file ».  On vérifie avant l'export, à moindre coût : le
+;; fichier doit commencer par « [ » et finir par « ] » (tableau CSL-JSON),
+;; sans lire les Mo intermédiaires.
+(defun my/csl--json-truncated-p (file)
+  "Return a reason string if CSL-JSON FILE is empty or truncated, else nil."
+  (let ((size (file-attribute-size (file-attributes file))))
+    (cond
+     ((null size) nil)                  ; absent : Org le signale lui-même
+     ((zerop size) "fichier vide")
+     (t
+      (with-temp-buffer
+        (set-buffer-multibyte nil)
+        (insert-file-contents-literally file nil 0 (min size 64))
+        (goto-char (point-min))
+        (skip-chars-forward "\357\273\277 \t\r\n")   ; BOM UTF-8, blancs
+        (if (not (eq (char-after) ?\[))
+            "ne commence pas par « [ » (format CSL-JSON attendu)"
+          (erase-buffer)
+          (insert-file-contents-literally file nil (max 0 (- size 64)) size)
+          (goto-char (point-max))
+          (skip-chars-backward " \t\r\n")
+          (unless (eq (char-before) ?\])
+            "tronqué (ne finit pas par « ] »)")))))))
+
+(defun my/csl-check-bibliographies (_backend)
+  "Signal a clear error when a CSL-JSON bibliography cannot be read.
+Only when the buffer cites something and the CSL processor is active."
+  (when (and my/csl-available-p
+             (save-excursion
+               (goto-char (point-min))
+               (re-search-forward "\\[cite[/:]" nil t)))
+    (dolist (file (org-cite-list-bibliography-files))
+      (when (string-suffix-p ".json" file t)
+        (when-let* ((reason (my/csl--json-truncated-p file)))
+          (user-error "Bibliographie CSL-JSON illisible : %s — %s.  \
+Relancer l'export Better CSL JSON de Zotero (ou attendre qu'il se termine)"
+                      (abbreviate-file-name file) reason))))))
+
+(add-hook 'org-export-before-processing-functions #'my/csl-check-bibliographies)
+
 ;;;; BABEL
 ;; Par défaut, demander confirmation avant d'exécuter un bloc babel.
 ;; Pendant l'export, désactiver la confirmation automatiquement
