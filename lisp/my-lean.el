@@ -72,11 +72,13 @@ Return nil outside any Lake project."
   (let* ((path (expand-file-name (or file buffer-file-name default-directory)))
          (cut (string-match "/\\.lake/" path))
          (start (if cut (substring path 0 (1+ cut)) path)))
-    (locate-dominating-file
-     start
-     (lambda (dir)
-       (or (file-exists-p (expand-file-name "lakefile.lean" dir))
-           (file-exists-p (expand-file-name "lakefile.toml" dir)))))))
+    ;; `locate-dominating-file' peut rendre un nom abrégé (« ~/… »).
+    (when-let* ((root (locate-dominating-file
+                       start
+                       (lambda (dir)
+                         (or (file-exists-p (expand-file-name "lakefile.lean" dir))
+                             (file-exists-p (expand-file-name "lakefile.toml" dir)))))))
+      (expand-file-name root))))
 
 ;;;###autoload
 (defun my/lake (command)
