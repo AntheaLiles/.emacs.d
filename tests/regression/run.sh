@@ -17,8 +17,9 @@
 # ~/.cache/emacs-d-regress, ou $REGRESS_DEPS).
 #
 # Vérifications sur le PDF (pagination, corps de la bibliographie, première
-# page) : tests/regression/pdfcheck.py, qui requiert PyMuPDF ; sans lui, elles
-# sont ignorées et signalées.
+# page) : tests/regression/pdfcheck.py, qui requiert PyMuPDF
+# (pip install --require-hashes -r tests/regression/requirements.txt) ; sans
+# lui, elles sont ignorées et signalées.
 #
 # Adaptations automatiques, signalées à l'écran :
 #   - polices Luciole / Iosevka absentes → DejaVu et Latin Modern Math ;

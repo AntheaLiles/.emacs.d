@@ -1,8 +1,9 @@
 # .emacs.d — configuration Emacs pour la recherche scientifique
 
-[![REUSE](https://github.com/AntheaLiles/.emacs.d/actions/workflows/reuse.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/reuse.yml)
-[![Lint](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml)
-[![Non-régression](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml)
+[![Lint](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml)
+[![Non-régression](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml/badge.svg?branch=main)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml)
+[![REUSE status](https://api.reuse.software/badge/github.com/AntheaLiles/.emacs.d)](https://api.reuse.software/info/github.com/AntheaLiles/.emacs.d)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/AntheaLiles/.emacs.d/badge)](https://scorecard.dev/viewer/?uri=github.com/AntheaLiles/.emacs.d)
 
 Configuration personnelle d'**Emacs 31.1** (vanilla, sans framework), pensée
 pour la rédaction scientifique : Org-mode, LaTeX (LuaLaTeX, PDF/UA-2),

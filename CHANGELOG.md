@@ -12,6 +12,11 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **OpenSSF Scorecard** : workflow `.github/workflows/scorecard.yml`
+  (hebdomadaire, sur `main` et à chaque règle de protection de branche),
+  résultats publiés pour le badge du README et envoyés à l'onglet Security.
+- `tests/regression/requirements.txt` : PyMuPDF épinglé par hachage, suivi par
+  Dependabot (pip).
 - **Icônes ORCID** (`assets/`, marque d'ORCID, Inc., déclarée dans
   `REUSE.toml`) et `\orcidlinkunauth{…}` pour un identifiant non
   authentifié, à côté de `\orcidlink{…}`.
@@ -76,6 +81,11 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Modifié
 
+- **Badges du README** au format de k7pl : CI (`?branch=main`), REUSE status
+  (api.reuse.software) et OpenSSF Scorecard. Pas de badge DOI : le dépôt n'est
+  pas encore archivé sur Zenodo.
+- **CI** : toutes les actions épinglées par SHA (commentaire de version, suivi
+  par Dependabot) et `persist-credentials: false` sur chaque `checkout`.
 - `.gitignore` : les fichiers `*.eld` (données Lisp écrites par Emacs et ses
   paquets) ne sont plus suivis.
 - **Rupture** — l'export PDF/UA passe par `C-c C-e u` et la classe par défaut
