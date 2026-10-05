@@ -24,6 +24,9 @@ test:
 	  -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L lisp -l tests/my-config-test.el \
 	  -f ert-run-tests-batch-and-exit
+	# Export Typst : ignoré sans ox-typst dans le load-path (ajouter -L)
+	$(EMACS) -Q --batch -L lisp -l tests/my-typst-test.el \
+	  -f ert-run-tests-batch-and-exit
 	$(EMACS) -Q --batch -L lisp -l tests/my-appearance-test.el \
 	  -f ert-run-tests-batch-and-exit
 

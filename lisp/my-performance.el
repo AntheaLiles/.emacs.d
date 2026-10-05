@@ -42,6 +42,10 @@
 ;; Avertissements d'obsolescence conservés : les masquer avait caché les API
 ;; retirées dans Emacs 31 (when-let, hs-looking-at-block-start-p…).
 (setopt compilation-scroll-output t)
+;; Lake (et d'autres outils) colorie sa sortie : sans filtre, les séquences
+;; ANSI brutes empêchent la reconnaissance des erreurs (Emacs ne l'active pas
+;; par défaut).
+(add-hook 'compilation-filter-hook #'ansi-color-compilation-filter)
 
 ;;;; VERSION CONTROL — limiter aux backends utilisés
 (setopt vc-handled-backends '(Git))

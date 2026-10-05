@@ -17,6 +17,7 @@
 ;;; Code:
 
 (declare-function eglot-format-buffer "eglot" ())
+(declare-function eglot-server-capable "eglot" (&rest feats))
 
 ;;;; TRAILING WHITESPACE
 ;; Sauvegarde manuelle uniquement
@@ -31,10 +32,16 @@ Skips cleanup during `auto-save-visited-mode' automatic saves."
 ;;;; EGLOT FORMAT
 ;; Sauvegarde manuelle uniquement
 (defun my/eglot-format-on-save ()
-  "Format buffer via Eglot on manual save, if Eglot is active."
+  "Format buffer via Eglot on manual save, if Eglot is active.
+Only when the server can format (Lean's cannot: `eglot-format-buffer' signals
+an error, which Emacs reports at every save and which skips the remaining
+`before-save-hook' functions), and a formatting failure never disturbs the
+save."
   (when (and (eq this-command 'save-buffer)
-             (bound-and-true-p eglot--managed-mode))
-    (eglot-format-buffer)))
+             (bound-and-true-p eglot--managed-mode)
+             (eglot-server-capable :documentFormattingProvider))
+    (with-demoted-errors "Formatage Eglot : %S"
+      (eglot-format-buffer))))
 
 (add-hook 'before-save-hook #'my/eglot-format-on-save)
 

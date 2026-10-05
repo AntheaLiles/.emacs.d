@@ -12,6 +12,38 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Confiance Emacs 30+** (`lisp/my-editing.el`) : `trusted-content` déclare
+  fiables `init.el`, `early-init.el`, `lisp/`, `tests/`, `scripts/` et `perf/`,
+  ce qui rétablit le linting Flymake de la configuration (CVE-2024-53920).
+  `elpaca/` (code téléchargé) et `:all` restent exclus.
+- **Projets Lean 4 / Lake** (`lisp/my-lean.el`, vérifiés sur le serveur Lean
+  4.34 réel) : `M-x my/lake` (`C-x p L`) lance `lake build|test|lint|…` à la
+  racine du projet, car Lake ne remonte pas l'arborescence ; analyse des
+  messages `error: src/X.lean:8:20:` de Lake dans `*compilation*` (le mot
+  `error`/`warning` précède le chemin : avertissements et erreurs sont
+  distingués) ; lignes de 100 colonnes et `compile-command` « lake build »
+  dans les tampons Lean.
+- `~/.elan/bin` ajouté au `PATH` d'Emacs (`lisp/my-paths.el`) : elan ne
+  modifie que le profil du shell, qu'un Emacs lancé hors d'un terminal ne lit
+  pas.
+- **Export Typst** (`C-c C-e T`) : backend dérivé `my-typst`
+  (`lisp/my-export-typst.el`, paquet `ox-typst`). Fichier `.typ`, PDF/UA-1,
+  brouillon, tampon. Reprend de la chaîne LaTeX la mise en page, le style CSL
+  (avec le `.bib`, Typst ne lisant pas le CSL-JSON), `#+ALT_TEXT:`,
+  `\orcidlink{…}`, les blocs `abstract` et `keyword`, un bloc de titre et la
+  conversion des `.drawio` (en SVG). Fonctionne aussi en export asynchrone.
+  Corrige au passage trois défauts d'`ox-typst` : seul le premier auteur
+  figurait dans les métadonnées, un `#+DATE:` en texte libre faisait échouer
+  le gabarit, et un tampon sans fichier aussi.
+- `tests/my-typst-test.el` (14 tests) et section « export Typst » du banc de
+  non-régression : compilation réelle par `typst`, PDF/UA-1 vérifié sur le
+  PDF, brouillon. La CI installe Typst 0.15.1 (somme SHA-256 vérifiée) et
+  épingle `ox-typst` sur un commit.
+- **OpenSSF Scorecard** : workflow `.github/workflows/scorecard.yml`
+  (hebdomadaire, sur `main` et à chaque règle de protection de branche),
+  résultats publiés pour le badge du README et envoyés à l'onglet Security.
+- `tests/regression/requirements.txt` : PyMuPDF épinglé par hachage, suivi par
+  Dependabot (pip).
 - **Mode-line native** (`lisp/my-appearance.el`) : segments et variantes par
   famille de modes, faces dérivées de la palette Modus, amont Git asynchrone.
   L'ancien `M-x my/ml-diagnose` est remplacé par `tests/my-appearance-test.el`
@@ -82,6 +114,15 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Modifié
 
+- Conversion `.drawio` : SVG pour Typst, PDF pour tous les autres backends
+  (comportement inchangé).
+- **Badges du README** au format de k7pl : CI (`?branch=main`), REUSE status
+  (api.reuse.software) et OpenSSF Scorecard. Pas de badge DOI : le dépôt n'est
+  pas encore archivé sur Zenodo.
+- **CI** : toutes les actions épinglées par SHA (commentaire de version, suivi
+  par Dependabot) et `persist-credentials: false` sur chaque `checkout`.
+- `.gitignore` : les fichiers `*.eld` (données Lisp écrites par Emacs et ses
+  paquets) ne sont plus suivis.
 - **Rupture** — l'export PDF/UA passe par `C-c C-e u` et la classe par défaut
   s'appelle `article-ua` : `#+LATEX_CLASS: article` redevient la classe
   standard de LaTeX.
@@ -131,6 +172,28 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **`C-x C-s` dans un fichier Lean** : le formatage à la sauvegarde
+  (`my/eglot-format-on-save`) appelait `eglot-format-buffer`, qui signale une
+  erreur quand le serveur ne formate pas (celui de Lean) : Emacs affichait
+  « Before-save hook error » à chaque sauvegarde et sautait les autres
+  fonctions de `before-save-hook` (la sauvegarde aboutissait). Il vérifie
+  désormais la capacité du serveur.
+- **Diagnostics Lean absents sous Emacs 31** : la variante Eglot de `lean4-mode`
+  (dernier commit : février 2026) appelle `jsonrpc--sync-request-alist`,
+  fonction interne supprimée de `jsonrpc` (1.0.29, Emacs 31.1). Chaque
+  réception de diagnostics levait une erreur dans un timer, `flymake-start`
+  n'était jamais appelé et aucune erreur Lean ne s'affichait. Une fonction de
+  compatibilité (`lisp/my-lean.el`) la rétablit à partir de la liste
+  `-scontrol` de `jsonrpc`.
+- **Sortie colorée dans `*compilation*`** : Emacs n'active pas par défaut le
+  filtre ANSI (`ansi-color-compilation-filter`) ; les builds Lake (et ceux de
+  tout outil qui colore) affichaient des séquences d'échappement brutes qui
+  empêchaient d'analyser les messages d'erreur.
+- **Eglot** : `lean4-mode` n'est plus accroché à `my/eglot-ensure-maybe`
+  (le mode appelle lui-même `eglot-ensure`, après avoir repéré la racine du
+  projet Lake : le démarrage était doublé) ; bash, YAML, TypeScript et Perl
+  ne démarrent Eglot que si leur serveur est installé, au lieu d'un
+  avertissement à chaque ouverture de fichier.
 - **Bibliographie vide** : un `#+print_bibliography:` unique placé en fin
   d'article (après des `#+INCLUDE`, donc dans la dernière section) ne listait
   que les références de cette section, c'est-à-dire aucune. Un mot-clé

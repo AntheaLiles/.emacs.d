@@ -1,8 +1,9 @@
 # .emacs.d — configuration Emacs pour la recherche scientifique
 
-[![REUSE](https://github.com/AntheaLiles/.emacs.d/actions/workflows/reuse.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/reuse.yml)
-[![Lint](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml)
-[![Non-régression](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml)
+[![Lint](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml/badge.svg?branch=main)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml)
+[![Non-régression](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml/badge.svg?branch=main)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/regression.yml)
+[![REUSE status](https://api.reuse.software/badge/github.com/AntheaLiles/.emacs.d)](https://api.reuse.software/info/github.com/AntheaLiles/.emacs.d)
+[![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/AntheaLiles/.emacs.d/badge)](https://scorecard.dev/viewer/?uri=github.com/AntheaLiles/.emacs.d)
 
 Configuration personnelle d'**Emacs 31.1** (vanilla, sans framework), pensée
 pour la rédaction scientifique : Org-mode, LaTeX (LuaLaTeX, PDF/UA-2),
@@ -53,8 +54,10 @@ réorganisée sans adapter ces chemins.
 │   ├── my-folding.el        Repliement façon Org dans tous les modes
 │   ├── my-formatting.el     Nettoyage / formatage à la sauvegarde manuelle
 │   ├── my-babel.el          Langages Babel (session et export asynchrone)
+│   ├── my-lean.el           Lean 4 / Lake : lignes de 100 colonnes, `my/lake`, erreurs de Lake
 │   ├── my-export-config.el  Backend d'export « pdfua » (Org → PDF/UA, CSL)
 │   ├── my-export-async.el   Init du processus d'export asynchrone
+│   ├── my-export-typst.el   Backend d'export Typst « my-typst » (C-c C-e T)
 │   ├── my-export-ui.el      Journal d'export puis PDF dans une fenêtre latérale
 │   ├── my-citar-noter.el    Pont citar ↔ org-noter
 │   └── my-deps.el           Vérificateur des dépendances système (M-x my/deps-check)
@@ -127,8 +130,9 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 | `my-appearance` | Thème modus, mode line native, police JetBrains Mono Nerd, numéros de ligne, `hl-line`, titres Org. | `<f5>` : clair / sombre. |
 | `my-folding` | Repliement natif d'Emacs 31 : `TAB` sur un titre, `S-TAB` global, blocs par `C-c z b` et indicateurs en frange. | `TAB` **indente** hors des titres. Org est exclu. |
 | `my-formatting` | Supprime les blancs finaux et formate via Eglot **uniquement** lors d'un `C-x C-s`. | Ignore les sauvegardes automatiques. |
+| `my-lean` | Complète `lean4-mode` pour les projets Lake : `M-x my/lake` (`C-x p L`) lance `lake build`, `test`, `lint`… **à la racine** (Lake ne remonte pas l'arborescence), analyse ses messages `error: fichier:ligne:col:`, lignes de 100 colonnes. | `~/.elan/bin` est ajouté au `PATH` ; `C-x p c` compile aussi à la racine. |
 | `my-babel` | Langages Babel (Emacs Lisp, Python, R, shell, calc, Lua), partagés avec l'export asynchrone. | — |
-| `my-export-*` | Backend `pdfua` : Org → LuaLaTeX → PDF/UA (latexmk, `engrave-faces`, CSL) et affichage du PDF. | Menu `C-c C-e u`. |
+| `my-export-*` | Backend `pdfua` : Org → LuaLaTeX → PDF/UA (latexmk, `engrave-faces`, CSL) et affichage du PDF ; backend `my-typst` : Org → Typst → PDF/UA-1. | Menus `C-c C-e u` et `C-c C-e T`. |
 | `my-citar-noter` | Ouvre le PDF d'une référence et lance org-noter. | `C-c n P`. |
 | `my-deps` | Vérifie à la demande exécutables, fichiers, paquets LaTeX et polices. | `M-x my/deps-check`. |
 
@@ -214,6 +218,37 @@ rien à écrire. Le préambule les compose quelle que soit la police.
 
 Sans `citeproc`, l'export reste possible avec le processeur `basic`.
 
+## Export Typst
+
+`C-c C-e T` exporte vers [Typst](https://typst.app/) (compilateur `typst`,
+version 0.14 ou plus pour PDF/UA-1) par `ox-typst`, étendu par
+`lisp/my-export-typst.el` :
+
+| Touche | Action |
+| --- | --- |
+| `C-c C-e T f` | fichier `.typ` |
+| `C-c C-e T p` | PDF/UA-1 |
+| `C-c C-e T o` | PDF, puis ouverture |
+| `C-c C-e T d` | PDF **brouillon** : sans PDF/UA ni balises, sans texte alternatif exigé |
+| `C-c C-e T F` | tampon `.typ` |
+
+Ce que l'export reprend de la chaîne LaTeX : A4 et marges, polices
+Luciole / Iosevka (avec repli), pied « page / total », code en ligne sur fond
+grisé, `#+ALT_TEXT:` (texte alternatif, **exigé** par PDF/UA-1),
+`\orcidlink{…}` et `\orcidlinkunauth{…}`, blocs `abstract` et `keyword`,
+titre / sous-titre / auteurs / date, diagrammes `.drawio` (convertis en SVG,
+Typst refusant les PDF en PDF/UA). La langue par défaut est le français.
+
+**Bibliographie.** Typst ne lit pas le CSL-JSON : il utilise le `.bib`
+voisin (`references.json` → `references.bib`, ou `my/bibtex-files`) et **le même
+style CSL** que le PDF LaTeX, donc les mêmes références et les mêmes espaces
+insécables. Titre « Références » ; `:heading none` le retire, `:title "…"` le
+remplace, `:heading subbibliography` le descend d'un niveau.
+
+Non repris : remarques en marge `[rmq:…]`, éléments de flottant
+`#+DESC:`/`#+NOTE:`/`#+SOURCE:`, une bibliographie par section (Typst n'en
+connaît qu'une). `#+TYPST_HEADER:` remplace l'en-tête par défaut.
+
 ## Code en ligne à l'export PDF
 
 | Écrit dans Org | Rendu PDF |
@@ -244,7 +279,7 @@ si le document contient du code en ligne.
   outils de compilation d'AUCTeX (`autoconf`, `make`). biber n'est plus
   nécessaire.
 - **Recherche** : `ripgrep` (`rg`), `fd` (`fdfind` sous Debian/Ubuntu).
-- **Facultatifs** : `emacs-lsp-booster`, serveurs de langage
+- **Facultatifs** : `typst` (export Typst), `emacs-lsp-booster`, serveurs de langage
   (`bash-language-server`, `yaml-language-server`,
   `typescript-language-server`, `perlnavigator`), Lean 4 (`elan`, `lake`),
   `drawio`.

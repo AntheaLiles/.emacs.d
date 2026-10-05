@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Image d'exemple pour le banc de non-régression (essai-typst.org). -->
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="140" viewBox="0 0 240 140">
+  <rect x="2" y="2" width="236" height="136" fill="#d9d9d9" stroke="#404040" stroke-width="2"/>
+  <circle cx="120" cy="70" r="40" fill="#8c8c8c"/>
+  <text x="120" y="76" text-anchor="middle" font-size="20" fill="#ffffff">Photo</text>
+</svg>

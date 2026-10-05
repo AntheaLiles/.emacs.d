@@ -36,7 +36,10 @@ path = [
   ".claude/commands/**",
   "ispell-personal",  # dictionnaire personnel hunspell (lisp/my-editing.el)
   "tests/regression/essai.org",        # document d'essai du banc
-  "tests/regression/references.json",  # références fictives du banc
+  "tests/regression/essai-typst.org",  # document d'essai Typst du banc
+  "tests/regression/references.json",  # références fictives du banc (CSL-JSON)
+  "tests/regression/references.bib",   # les mêmes, en BibTeX (Typst)
+  "tests/regression/photo.svg",        # image d'exemple du banc
 ]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 AntheaLiles"

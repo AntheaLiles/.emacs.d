@@ -43,6 +43,9 @@
 ;; rendu des blocs source (engraved, ou verbatim en repli).
 (require 'my-export-config)
 
+;;;; EXPORT TYPST (C-c C-e T) — sans effet si ox-typst n'est pas installé
+(require 'my-export-typst)
+
 ;;;; ORG-GLOSSARY (optionnel — ne crash pas si absent)
 (require 'org-glossary nil t)
 

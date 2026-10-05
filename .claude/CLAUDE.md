@@ -76,6 +76,14 @@ CI sous 31.1 fait foi.
   (`my/pdfua-active-p`) : elle vaut aussi pour `C-c C-e l` sur un document
   `-ua`, jamais pour `article` ni Beamer. Modules de préambule optionnels :
   `latex/modules/*.tex`, par `#+LATEX_MODULES:`.
+- Export Typst : backend dérivé `my-typst` (`C-c C-e T`), module
+  `lisp/my-export-typst.el` au-dessus du paquet `ox-typst` (Elpaca) ; le
+  module n'agit que si `ox-typst` est présent (tests ignorés sinon). Typst lit
+  le `.bib` et le style CSL, pas le CSL-JSON.
+- Lean 4 : `lean4-mode` (variante Eglot, installée par Elpaca) démarre lui-même
+  `lake serve` ; `lisp/my-lean.el` ajoute `my/lake` (à la racine du projet) et
+  l'analyse des erreurs de Lake. Un serveur LSP sans formatage ne doit jamais
+  bloquer la sauvegarde (`my/eglot-format-on-save`).
 - Export Org asynchrone : processus séparé initialisé par
   `lisp/my-export-async.el` (ne lit pas `init.el`) ; il charge `my-babel`
   et `my-export-config`, comme la session.
