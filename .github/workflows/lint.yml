@@ -41,3 +41,11 @@ jobs:
         run: |
           emacs -Q --batch -L lisp -l tests/my-config-test.el \
             -f ert-run-tests-batch-and-exit
+      - name: Tests ERT de l'export Typst (ox-typst épinglé sur un commit)
+        run: |
+          git init -q "$RUNNER_TEMP/ox-typst"
+          git -C "$RUNNER_TEMP/ox-typst" fetch -q --depth 1 \
+            https://github.com/jmpunkt/ox-typst.git 3e499609a201405a6064144792dab14e3cc19b93
+          git -C "$RUNNER_TEMP/ox-typst" checkout -q FETCH_HEAD
+          emacs -Q --batch -L lisp -L "$RUNNER_TEMP/ox-typst" -l tests/my-typst-test.el \
+            -f ert-run-tests-batch-and-exit

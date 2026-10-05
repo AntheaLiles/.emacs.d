@@ -4,7 +4,7 @@ name: Non-régression export
 # réel) → LuaLaTeX, en article-ua, book-ua et profil brouillon.
 on:
   push:
-    paths: ["lisp/**", "latex/**", "csl/**", "tests/regression/**", ".github/workflows/regression.yml"]
+    paths: ["lisp/**", "latex/**", "csl/**", "assets/**", "tests/regression/**", ".github/workflows/regression.yml"]
   pull_request:
   workflow_dispatch:
 
@@ -29,6 +29,16 @@ jobs:
             texlive-luatex texlive-latex-extra texlive-lang-french \
             texlive-fonts-recommended texlive-science texlive-plain-generic \
             latexmk fonts-dejavu-core fonts-lmodern fontconfig python3 python3-pip
+      - name: Typst 0.15.1 (somme SHA-256 vérifiée)
+        # Version et somme à mettre à jour ensemble.
+        run: |
+          curl -sSfL -o "$RUNNER_TEMP/typst.tar.xz" \
+            https://github.com/typst/typst/releases/download/v0.15.1/typst-x86_64-unknown-linux-musl.tar.xz
+          echo "a6d077d0a95eed5a2eba715b2dae06be954f624ccbf85758a03f389ded33118c  $RUNNER_TEMP/typst.tar.xz" | sha256sum -c -
+          tar -xJf "$RUNNER_TEMP/typst.tar.xz" -C "$RUNNER_TEMP" --strip-components=1 \
+            typst-x86_64-unknown-linux-musl/typst
+          sudo install -m 0755 "$RUNNER_TEMP/typst" /usr/local/bin/typst
+          typst --version
       - name: PyMuPDF (vérifications sur le PDF)
         run: >
           python3 -m pip install --user --break-system-packages --require-hashes

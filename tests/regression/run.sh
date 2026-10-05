@@ -48,12 +48,24 @@ declare -A REPOS=(
   [citeproc-el]=andras-simonyi/citeproc-el [dash.el]=magnars/dash.el
   [s.el]=magnars/s.el [f.el]=rejeep/f.el [string-inflection]=akicho8/string-inflection
   [queue]=emacsmirror/queue [compat]=emacs-compat/compat
-  [parsebib]=joostkremers/parsebib [engrave-faces]=tecosaur/engrave-faces)
+  [parsebib]=joostkremers/parsebib [engrave-faces]=tecosaur/engrave-faces
+  # ox-typst (export Typst) : épinglé sur un commit (« dépôt@SHA »)
+  [ox-typst]=jmpunkt/ox-typst@3e499609a201405a6064144792dab14e3cc19b93)
 mkdir -p "$DEPS"
 LOADPATH=()
+clone_dep() { # clone_dep DOSSIER DÉPÔT[@SHA]
+  local dir=$1 repo=${2%@*} sha=""
+  [[ $2 == *@* ]] && sha=${2#*@}
+  if [ -n "$sha" ]; then
+    git init -q "$dir" && git -C "$dir" fetch -q --depth 1 "https://github.com/$repo.git" "$sha" \
+      && git -C "$dir" checkout -q FETCH_HEAD
+  else
+    git clone -q --depth 1 "https://github.com/$repo.git" "$dir"
+  fi
+}
 for d in "${!REPOS[@]}"; do
-  [ -d "$DEPS/$d" ] || git clone -q --depth 1 "https://github.com/${REPOS[$d]}.git" "$DEPS/$d" \
-    || { echo "clonage impossible : ${REPOS[$d]}" >&2; exit 2; }
+  [ -d "$DEPS/$d" ] || clone_dep "$DEPS/$d" "${REPOS[$d]}" \
+    || { rm -rf "$DEPS/$d"; echo "clonage impossible : ${REPOS[$d]}" >&2; exit 2; }
   LOADPATH+=(-L "$DEPS/$d")
 done
 
@@ -209,6 +221,57 @@ pdf "« figure 1, page 1 » et non « ?? »" page 1 "Voir figure 1, page 1."
 echo "== mise en page"
 check "book-ua plus long qu'article-ua (sections sur page impaire : $PAGES_book > $PAGES_article)" \
   test "$PAGES_book" -gt "$PAGES_article"
+
+echo "== export Typst (C-c C-e T)"
+# ox-typst exige Org 9.7 ou plus (Emacs 31 : 9.8) ; le test s'en assure.
+ORG_RECENT=$(emacs -Q --batch "${LOADPATH[@]}" \
+  --eval '(progn (require (quote org)) (princ (if (version<= "9.7" (org-version)) "oui" "non")))' 2>/dev/null)
+if [ "$ORG_RECENT" != oui ]; then
+  if [ -n "${CI:-}" ]; then ko "Org 9.7 ou plus requis en CI (export Typst)"
+  else echo "  (Org < 9.7 : export Typst ignoré ; la CI sous Emacs 31 le couvre)"; fi
+elif command -v typst >/dev/null 2>&1; then
+  TYPST_DIR=$WORK/out-typst
+  rm -rf "$TYPST_DIR"; mkdir -p "$TYPST_DIR/img" "$WORK/home/wiki/00.resources"
+  cp "$HERE/essai-typst.org" "$TYPST_DIR/essai.org"
+  cp "$HERE/photo.svg" "$TYPST_DIR/img/"
+  cp "$HERE/references.bib" "$WORK/home/wiki/00.resources/"
+  echo '<mxfile><diagram>stub</diagram></mxfile>' > "$TYPST_DIR/img/schema.drawio"
+  typst_export() { # typst_export FORME-LISP
+    ( cd "$TYPST_DIR" && HOME=$WORK/home PATH=$HERE/stub-bin:$PATH emacs -Q --batch \
+        --eval "(setq user-emacs-directory \"$ROOT/\")" "${LOADPATH[@]}" \
+        -l "$ROOT/lisp/my-export-async.el" \
+        --eval "(progn (setq org-confirm-babel-evaluate nil) (find-file \"essai.org\") $1)" \
+        > export.log 2>&1 )
+  }
+  typst_export "(my/typst-export-to-pdf)"
+  TY=$TYPST_DIR/essai.typ; PDF=$TYPST_DIR/essai.pdf
+  check "fichier .typ et PDF produits" test -s "$TY" -a -s "$PDF"
+  check "langue française par défaut" grep -q '#set text(lang: "fr")' "$TY"
+  check "ORCID : appels Typst, icônes passées en entrée" \
+    bash -c "grep -q '#orcid-link(false' '$TY' && grep -q '#orcid-link(true' '$TY' && grep -q -- '--input orcid-icon=' '$TY'"
+  check "texte alternatif des images (PDF/UA-1)" \
+    bash -c "grep -q 'alt: \"Photographie' '$TY' && grep -q 'alt: \"Schéma' '$TY'"
+  check "drawio converti en SVG" grep -q 'schema.svg' "$TY"
+  check "citations groupées, bibliographie .bib + style CSL" \
+    bash -c "grep -q '#cite(label(\"a2021\"))#cite(label(\"b2021\"))' '$TY' && grep -q '#bibliography(' '$TY' && grep -q 'style: sys.inputs' '$TY'"
+  pdf "PDF/UA-1 déclaré et balisé" ua
+  pdf "auteurs complets dans les métadonnées" author "Test, Autre"
+  pdf "titre, résumé et mots-clés" page 1 "Résumé"
+  pdf "mots-clés" page 1 "Mots-clés"
+  pdf "titre centré" centered 1 "Banc Typst"
+  pdf "citations groupées « [2, 3] »" count "[2, 3]" 1
+  pdf "bibliographie « Références »" count "Références" 1
+  pdf "références du style CSL (espaces insécables)" page 2 "A. Martin, Un livre. Paris : Éditeur, 2019."
+  # Profil brouillon : sans texte alternatif, PDF/UA-1 refuserait l'image
+  sed -i '/^#+ALT_TEXT/d' "$TYPST_DIR/essai.org"
+  rm -f "$PDF" "$TY"
+  typst_export "(my/typst-export-draft-to-pdf)"
+  check "brouillon compilé sans texte alternatif" test -s "$PDF"
+  pdf "brouillon sans PDF/UA" notua
+else
+  if [ -n "${CI:-}" ]; then ko "typst requis en CI (export Typst)"
+  else echo "  (typst absent : export Typst ignoré)"; fi
+fi
 
 echo "== profil brouillon"
 export_doc article-ua "(my/pdfua-export-to-latex nil nil nil nil '(:ua-draft t))"

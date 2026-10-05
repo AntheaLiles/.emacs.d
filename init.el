@@ -461,6 +461,14 @@
   (with-eval-after-load 'ox-latex
     (require 'my-export-config)))
 
+;; Export Typst (backend my-typst, C-c C-e T) : ox-typst, étendu par
+;; lisp/my-export-typst.el (partagé avec le processus d'export asynchrone).
+;; Binaire requis : typst (>= 0.14 pour PDF/UA), voir M-x my/deps-check.
+(use-package ox-typst
+  :ensure t
+  :after ox
+  :config (require 'my-export-typst))
+
 (use-package org-appear
   :ensure t
   :hook (org-mode . org-appear-mode)

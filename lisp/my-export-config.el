@@ -231,10 +231,13 @@ when given, from the buffer's #+LATEX_CLASS otherwise."
           (unless (eq (char-before) ?\])
             "tronqué (ne finit pas par « ] »)")))))))
 
-(defun my/csl-check-bibliographies (_backend)
+(defun my/csl-check-bibliographies (backend)
   "Signal a clear error when a CSL-JSON bibliography cannot be read.
-Only when the buffer cites something and the CSL processor is active."
+Only when the buffer cites something and the CSL processor is active:
+not for BACKEND Typst, which reads the .bib file instead."
   (when (and my/csl-available-p
+             (not (and backend (symbolp backend)
+                       (org-export-derived-backend-p backend 'typst)))
              (save-excursion
                (goto-char (point-min))
                (re-search-forward "\\[cite[/:]" nil t)))
@@ -628,41 +631,53 @@ BACKEND est le backend d'export."
 (add-hook 'org-export-before-parsing-functions #'my/org-unwrap-table-blocks)
 
 ;;;;; Diagrammes drawio
-(defun my/org-convert-drawio (_backend)
-  "Convert .drawio links to .pdf before export."
+(defun my/org-drawio-format (backend)
+  "Return the image format drawio diagrams are converted to for BACKEND.
+Typst embeds SVG, not PDF (it refuses PDFs in tagged PDF/UA output); every
+other backend gets PDF."
+  (if (and backend (symbolp backend)
+           (org-export-derived-backend-p backend 'typst))
+      "svg"
+    "pdf"))
+
+(defun my/org-convert-drawio (backend)
+  "Convert .drawio links to PDF (SVG for Typst) before export with BACKEND."
   (when (executable-find "drawio")
-    (save-excursion
-      (goto-char (point-min))
-      (while (re-search-forward
-              "\\[\\[\\(file:\\)?\\([^]]*\\.drawio\\)\\]\\]" nil t)
-        ;; Positions relevées tout de suite : les appels qui suivent
-        ;; (processus externe, messages) peuvent écraser les données de match.
-        ;; Le préfixe file: est conservé dans le lien réécrit : sans lui,
-        ;; [[img/x.pdf]] serait lu par Org comme un lien interne.
-        (let* ((link-beg (match-beginning 0))
-               (link-end (match-end 0))
-               (prefix (or (match-string 1) ""))
-               (drawio-file (match-string 2))
-               (drawio-path (expand-file-name drawio-file))
-               (pdf-path (concat (file-name-sans-extension drawio-path) ".pdf"))
-               (pdf-link (concat (file-name-sans-extension drawio-file) ".pdf")))
-          (when (and (file-exists-p drawio-path)
-                     (or (not (file-exists-p pdf-path))
-                         (time-less-p
-                          (file-attribute-modification-time
-                           (file-attributes pdf-path))
-                          (file-attribute-modification-time
-                           (file-attributes drawio-path)))))
-            (message "Converting %s to PDF..." drawio-file)
-            (let ((code (call-process "timeout" nil "*drawio*" nil "60"
-                                      "drawio" "-x" "-f" "pdf" "--crop"
-                                      "-o" pdf-path drawio-path)))
-              (unless (eq code 0)
-                (message "ATTENTION : conversion de %s échouée ou expirée (code %s)"
-                         drawio-file code))))
-          (goto-char link-beg)
-          (delete-region link-beg link-end)
-          (insert "[[" prefix pdf-link "]]"))))))
+    (let ((format (my/org-drawio-format backend)))
+      (save-excursion
+        (goto-char (point-min))
+        (while (re-search-forward
+                "\\[\\[\\(file:\\)?\\([^]]*\\.drawio\\)\\]\\]" nil t)
+          ;; Positions relevées tout de suite : les appels qui suivent
+          ;; (processus externe, messages) peuvent écraser les données de match.
+          ;; Le préfixe file: est conservé dans le lien réécrit : sans lui,
+          ;; [[img/x.pdf]] serait lu par Org comme un lien interne.
+          (let* ((link-beg (match-beginning 0))
+                 (link-end (match-end 0))
+                 (prefix (or (match-string 1) ""))
+                 (drawio-file (match-string 2))
+                 (drawio-path (expand-file-name drawio-file))
+                 (out-path (concat (file-name-sans-extension drawio-path)
+                                   "." format))
+                 (out-link (concat (file-name-sans-extension drawio-file)
+                                   "." format)))
+            (when (and (file-exists-p drawio-path)
+                       (or (not (file-exists-p out-path))
+                           (time-less-p
+                            (file-attribute-modification-time
+                             (file-attributes out-path))
+                            (file-attribute-modification-time
+                             (file-attributes drawio-path)))))
+              (message "Converting %s to %s..." drawio-file (upcase format))
+              (let ((code (call-process "timeout" nil "*drawio*" nil "60"
+                                        "drawio" "-x" "-f" format "--crop"
+                                        "-o" out-path drawio-path)))
+                (unless (eq code 0)
+                  (message "ATTENTION : conversion de %s échouée ou expirée (code %s)"
+                           drawio-file code))))
+            (goto-char link-beg)
+            (delete-region link-beg link-end)
+            (insert "[[" prefix out-link "]]")))))))
 
 (add-hook 'org-export-before-parsing-functions #'my/org-convert-drawio)
 

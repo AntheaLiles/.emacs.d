@@ -2,8 +2,18 @@
 # SPDX-FileCopyrightText: 2026 AntheaLiles
 # SPDX-License-Identifier: CC0-1.0
 #
-# Simulacre de drawio pour le banc : drawio -x -f pdf --crop -o SORTIE ENTRÉE
-# Écrit une image PDF d'exemple (paquet mwe) à la place du diagramme.
-out=""
-while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift;; esac; shift; done
-cp "$(kpsewhich example-image-b.pdf)" "$out"
+# Simulacre de drawio pour le banc : drawio -x -f pdf|svg --crop -o SORTIE ENTRÉE
+# Écrit une image d'exemple à la place du diagramme : PDF (paquet mwe), ou SVG
+# pour Typst.
+out=""; fmt=pdf
+while [ $# -gt 0 ]; do case "$1" in -o) out="$2"; shift;; -f) fmt="$2"; shift;; esac; shift; done
+if [ "$fmt" = svg ]; then
+  cat > "$out" <<'SVG'
+<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60" viewBox="0 0 120 60">
+  <rect x="2" y="2" width="116" height="56" fill="#eee" stroke="#333"/>
+  <text x="60" y="35" text-anchor="middle" font-size="14">drawio</text>
+</svg>
+SVG
+else
+  cp "$(kpsewhich example-image-b.pdf)" "$out"
+fi

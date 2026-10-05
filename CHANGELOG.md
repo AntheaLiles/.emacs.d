@@ -12,6 +12,19 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Export Typst** (`C-c C-e T`) : backend dérivé `my-typst`
+  (`lisp/my-export-typst.el`, paquet `ox-typst`). Fichier `.typ`, PDF/UA-1,
+  brouillon, tampon. Reprend de la chaîne LaTeX la mise en page, le style CSL
+  (avec le `.bib`, Typst ne lisant pas le CSL-JSON), `#+ALT_TEXT:`,
+  `\orcidlink{…}`, les blocs `abstract` et `keyword`, un bloc de titre et la
+  conversion des `.drawio` (en SVG). Fonctionne aussi en export asynchrone.
+  Corrige au passage trois défauts d'`ox-typst` : seul le premier auteur
+  figurait dans les métadonnées, un `#+DATE:` en texte libre faisait échouer
+  le gabarit, et un tampon sans fichier aussi.
+- `tests/my-typst-test.el` (14 tests) et section « export Typst » du banc de
+  non-régression : compilation réelle par `typst`, PDF/UA-1 vérifié sur le
+  PDF, brouillon. La CI installe Typst 0.15.1 (somme SHA-256 vérifiée) et
+  épingle `ox-typst` sur un commit.
 - **OpenSSF Scorecard** : workflow `.github/workflows/scorecard.yml`
   (hebdomadaire, sur `main` et à chaque règle de protection de branche),
   résultats publiés pour le badge du README et envoyés à l'onglet Security.
@@ -81,6 +94,8 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Modifié
 
+- Conversion `.drawio` : SVG pour Typst, PDF pour tous les autres backends
+  (comportement inchangé).
 - **Badges du README** au format de k7pl : CI (`?branch=main`), REUSE status
   (api.reuse.software) et OpenSSF Scorecard. Pas de badge DOI : le dépôt n'est
   pas encore archivé sur Zenodo.

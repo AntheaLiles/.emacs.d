@@ -10,6 +10,9 @@ Usage :
   pdfcheck.py PDF absent N TEXTE      TEXTE ne figure pas en page N
   pdfcheck.py PDF centered N TEXTE    TEXTE est centré sur la page N (± 12 pt)
   pdfcheck.py PDF images N K          la page N contient K images
+  pdfcheck.py PDF ua                  PDF/UA-1 déclaré (XMP) et PDF balisé
+  pdfcheck.py PDF notua               ni PDF/UA ni balisage (profil brouillon)
+  pdfcheck.py PDF author TEXTE        l'auteur des métadonnées est TEXTE
   pdfcheck.py PDF size TEXTE TAILLE   TEXTE est composé en TAILLE pt (± 0,3)
 Code de sortie 0 si la vérification réussit ; le détail sur la sortie.
 Requiert PyMuPDF (python3 -m pip install pymupdf).
@@ -58,6 +61,17 @@ elif check == "images":
     nb = len(doc[n - 1].get_image_info())
     print(f"{nb} image(s) en page {n} (attendu {k})")
     sys.exit(0 if nb == k else 1)
+elif check == "ua" or check == "notua":
+    xmp = doc.get_xml_metadata()
+    declare = "pdfuaid:part>1<" in xmp.replace(" ", "")
+    balise = "StructTreeRoot" in doc.xref_object(doc.pdf_catalog())
+    print(f"PDF/UA-1 déclaré : {declare} ; balisé : {balise}")
+    ok = (declare and balise) if check == "ua" else (not declare and not balise)
+    sys.exit(0 if ok else 1)
+elif check == "author":
+    auteur = doc.metadata.get("author")
+    print(f"auteur : {auteur!r} (attendu {args[0]!r})")
+    sys.exit(0 if auteur == args[0] else 1)
 elif check == "count":
     cherche, k = args[0], int(args[1])
     n = sum(texte(i).count(cherche) for i in range(len(doc)))

@@ -1,0 +1,48 @@
+#+TITLE: Banc Typst
+#+SUBTITLE: Export Org vers Typst
+#+AUTHOR: Test\orcidlink{0000-0002-1825-0097}, Autre\orcidlinkunauth{0000-0001-5109-3700}
+#+OPTIONS: toc:nil
+#+LATEX_MODULES: tikz
+
+#+begin_abstract
+Ce résumé précède le corps du document.
+#+end_abstract
+
+#+begin_keyword
+essai, typst, régression
+#+end_keyword
+
+* Introduction
+Texte avec *gras*, /italique/, ~x_1 = 50%~ et src_emacs-lisp{(setq y 2)}.
+Citation [cite:@martin2019], groupe [cite:@a2021;@b2021] et [cite/t:@dupont2020].
+Une note[fn::Contenu de la note.].
+
+#+begin_src emacs-lisp
+(defun f (x) (* 2 x))
+#+end_src
+
+** Sous-section
+- premier
+- second
+
+* Figures
+#+ALT_TEXT: Photographie d'exemple en gris
+#+CAPTION: Figure d'exemple
+#+NAME: fig:photo
+[[file:img/photo.svg]]
+
+#+ALT_TEXT: Schéma de principe à trois boîtes
+#+CAPTION: Diagramme drawio
+[[file:img/schema.drawio]]
+
+Voir la figure [[fig:photo]].
+
+* Tableaux
+#+CAPTION: Mesures
+| Grandeur | Valeur | Unité |
+|----------+--------+-------|
+| Longueur |     12 | m     |
+| Masse    |      3 | kg    |
+
+* Bibliographie
+#+print_bibliography:
