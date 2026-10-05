@@ -3,8 +3,18 @@
 [![CI](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml/badge.svg)](https://github.com/AntheaLiles/.emacs.d/actions/workflows/lint.yml)
 [![REUSE status](https://api.reuse.software/badge/github.com/AntheaLiles/.emacs.d)](https://api.reuse.software/info/github.com/AntheaLiles/.emacs.d)
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/AntheaLiles/.emacs.d/badge)](https://scorecard.dev/viewer/?uri=github.com/AntheaLiles/.emacs.d)
-[![SWH](https://archive.softwareheritage.org/badge/origin/https://github.com/AntheaLiles/.emacs.d/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/AntheaLiles/.emacs.d)
+[![DOI](https://img.shields.io/badge/DOI-%C3%A0%20venir-lightgrey)](https://zenodo.org)
+[![SWH origin](https://img.shields.io/badge/SWH%20origin-%C3%A0%20archiver-lightgrey)](https://archive.softwareheritage.org/save/)
+[![SWH directory](https://img.shields.io/badge/SWH%20directory-%C3%A0%20archiver-lightgrey)](https://archive.softwareheritage.org/save/)
 [![fair-software.eu](https://img.shields.io/badge/fair--software.eu-%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8F%20%20%E2%97%8B-yellow)](https://fair-software.eu)
+
+<!-- Badges DOI et SWH vides : aucun dépôt Zenodo ni archive Software Heritage pour l'instant.
+Une fois la release publiée et le dépôt archivé, les remplacer par (NNNNNNN : numéro Zenodo ;
+HASH, VISIT et REL : valeurs du SWHID qualifié affiché par Software Heritage) :
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.NNNNNNN.svg)](https://doi.org/10.5281/zenodo.NNNNNNN)
+[![SWH origin](https://archive.softwareheritage.org/badge/origin/https://github.com/AntheaLiles/.emacs.d/)](https://archive.softwareheritage.org/browse/origin/?origin_url=https://github.com/AntheaLiles/.emacs.d)
+[![SWH directory](https://archive.softwareheritage.org/badge/swh:1:dir:HASH/)](https://archive.softwareheritage.org/swh:1:dir:HASH;origin=https://github.com/AntheaLiles/.emacs.d;visit=swh:1:snp:VISIT;anchor=swh:1:rel:REL)
+-->
 
 Configuration personnelle d'**Emacs 31.1** (vanilla, sans framework), pensée
 pour la rédaction scientifique : Org-mode, LaTeX (LuaLaTeX, PDF/UA-2),

@@ -87,9 +87,11 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 - **Badges du README** limités à CI (workflow `lint.yml`), REUSE
   (api.reuse.software, au lieu du workflow `reuse.yml`), OpenSSF Scorecard,
-  Software Heritage et fair-software.eu. Les badges « Lint » et
-  « Non-régression » disparaissent (les workflows restent actifs). Le
-  badge DOI est absent : aucun dépôt Zenodo n'existe encore.
+  DOI, Software Heritage (origine et répertoire) et fair-software.eu. Les
+  badges « Lint » et « Non-régression » disparaissent (les workflows restent
+  actifs). Les badges DOI et Software Heritage sont vides : aucun dépôt Zenodo
+  ni archive n'existe encore ; le README garde en commentaire les badges à
+  mettre en place ensuite.
 - **Rupture** — l'export PDF/UA passe par `C-c C-e u` et la classe par défaut
   s'appelle `article-ua` : `#+LATEX_CLASS: article` redevient la classe
   standard de LaTeX.
