@@ -70,7 +70,7 @@ bibliographies par section de l'export PDF/UA.")
 ;;;; TREE-SITTER GRAMMAIRES
 (when (fboundp 'treesit-available-p)
   (add-to-list 'treesit-extra-load-path
-               (expand-file-name "tree-sitter" user-emacs-directory)))
+    (expand-file-name "tree-sitter" user-emacs-directory)))
 
 (provide 'my-paths)
 ;;; my-paths.el ends here

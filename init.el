@@ -352,6 +352,7 @@
   :custom
   (ediff-split-window-function #'split-window-horizontally)
   (ediff-window-setup-function #'ediff-setup-windows-plain))
+
 (use-package diff-hl
   :ensure t
   :hook ((elpaca-after-init  . global-diff-hl-mode)
@@ -417,8 +418,8 @@
   :hook ((org-mode          . prettify-symbols-mode)
          (org-mode          . visual-line-mode)
          (org-mode          . visual-wrap-prefix-mode))) ; retour indenté (30)
-(use-package ob-mermaid
-  :ensure t)                        ; PAS de :after org (course au load-path)
+
+(use-package ob-mermaid :ensure t)                        ; PAS de :after org (course au load-path)
 
 (use-package org
   :ensure nil
@@ -469,6 +470,7 @@
 
   ;; Langages Babel : lisp/my-babel.el, partagé avec l'export asynchrone.
   (require 'my-babel)
+
   ;; Export PDF/UA (backend pdfua, C-c C-e u) et configuration partagée avec
   ;; le processus asynchrone.  ox charge ox-latex (`org-export-backends').
   (with-eval-after-load 'ox-latex

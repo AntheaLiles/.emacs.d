@@ -49,3 +49,7 @@ jobs:
           git -C "$RUNNER_TEMP/ox-typst" checkout -q FETCH_HEAD
           emacs -Q --batch -L lisp -L "$RUNNER_TEMP/ox-typst" -l tests/my-typst-test.el \
             -f ert-run-tests-batch-and-exit
+      - name: Tests ERT de l'apparence (mode-line, palette, glyphes)
+        run: |
+          emacs -Q --batch -L lisp -l tests/my-appearance-test.el \
+            -f ert-run-tests-batch-and-exit

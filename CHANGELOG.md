@@ -44,6 +44,12 @@ paquet, **correctif** = correction sans changement de comportement attendu.
   résultats publiés pour le badge du README et envoyés à l'onglet Security.
 - `tests/regression/requirements.txt` : PyMuPDF épinglé par hachage, suivi par
   Dependabot (pip).
+- **Mode-line native** (`lisp/my-appearance.el`) : segments et variantes par
+  famille de modes, faces dérivées de la palette Modus, amont Git asynchrone.
+  L'ancien `M-x my/ml-diagnose` est remplacé par `tests/my-appearance-test.el`
+  (API natives d'Emacs 31, noms de palette dans les deux thèmes, fontes,
+  glyphes, segments, rendu de chaque variante) ; seul le jugement visuel des
+  glyphes reste manuel.
 - **Icônes ORCID** (`assets/`, marque d'ORCID, Inc., déclarée dans
   `REUSE.toml`) et `\orcidlinkunauth{…}` pour un identifiant non
   authentifié, à côté de `\orcidlink{…}`.
