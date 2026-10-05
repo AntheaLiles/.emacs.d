@@ -43,7 +43,7 @@
      "https://github.com/jgraph/drawio-desktop/releases")
     ("Typst"        "typst"        nil "export Org → Typst (C-c C-e T) ; 0.14 ou plus pour PDF/UA-1"
      "https://github.com/typst/typst/releases (ou cargo install typst-cli)")
-    ("Lake (Lean 4)" "lake"        nil "lean4-mode : serveur « lake serve »"
+    ("Lake (Lean 4)" "lake"        nil "lean4-mode : serveur « lake serve », M-x my/lake"
      "curl https://elan.lean-lang.org/elan-init.sh -sSf | sh")
     ("emacs-lsp-booster" "emacs-lsp-booster" nil "eglot-booster"
      "cargo install emacs-lsp-booster")

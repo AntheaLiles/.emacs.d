@@ -42,6 +42,15 @@ bibliographies par section de l'export PDF/UA.")
 (defvar my/csl-locales-dir (expand-file-name "csl-locales" my/resources-path)
   "Répertoire des locales CSL (clone de citation-style-language/locales).")
 
+;;;; PATH ELAN (Lean 4)
+;; elan installe lean et lake dans ~/.elan/bin et ne modifie que le profil du
+;; shell : un Emacs lancé hors d'un terminal (menu WSLg, raccourci) ne le voit
+;; pas, et lean4-mode ne trouve alors pas « lake serve ».
+(let ((elan-bin (expand-file-name ".elan/bin" "~")))
+  (when (and (file-directory-p elan-bin) (not (member elan-bin exec-path)))
+    (add-to-list 'exec-path elan-bin)
+    (setenv "PATH" (concat elan-bin path-separator (getenv "PATH")))))
+
 ;;;; PATH NODE.JS (nvm)
 ;; Ajoute uniquement la version Node la plus récente au PATH.
 ;; Tri par numéro de version et non alphabétique : sinon v9.x passerait

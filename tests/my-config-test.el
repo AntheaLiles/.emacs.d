@@ -37,7 +37,9 @@
     (require 'my-editing))
   (require 'my-paths)
   (require 'my-folding)
-  (require 'my-deps))
+  (require 'my-deps)
+  (require 'my-formatting)
+  (require 'my-lean))
 
 ;;;; Déplacement de lignes (remplace move-text)
 
@@ -309,6 +311,115 @@ Compiling it would run its `require's (Org, ox-latex…) in the session."
     ;; Avant l'amorçage d'Elpaca
     (should (< (string-match "elpaca-core-date" text)
                (string-match "elpaca-installer-version" text)))))
+
+;;;; Lean 4 et Lake
+
+(ert-deftest my/lake-error-regexp ()
+  "Lake's \"error: FILE:L:C:\" lines are parsed, warnings told from errors."
+  (should (memq 'lake compilation-error-regexp-alist))
+  (let ((re (cadr (assq 'lake compilation-error-regexp-alist-alist))))
+    (dolist (case '(("error: src/Mini/Basic.lean:8:20: Type mismatch" "src/Mini/Basic.lean" "8" "20" error)
+                    ("warning: src/Mini/Basic.lean:10:8: declaration uses `sorry`" "src/Mini/Basic.lean" "10" "8" warning)
+                    ("info: src/K7pl/Arith.lean:3:0: note" "src/K7pl/Arith.lean" "3" "0" info)))
+      (should (string-match re (car case)))
+      (should (equal (match-string 4 (car case)) (nth 1 case)))
+      (should (equal (match-string 5 (car case)) (nth 2 case)))
+      (should (equal (match-string 6 (car case)) (nth 3 case)))
+      (should (eq (cond ((match-string 2 (car case)) 'warning)
+                        ((match-string 3 (car case)) 'info)
+                        (t 'error))
+                  (nth 4 case))))
+    ;; Lignes sans position, ou sorties de make : pas d'erreur factice
+    (should-not (string-match re "error: build failed"))
+    (should-not (string-match re "✖ [2/4] Building Mini.Basic (909ms)"))))
+
+(ert-deftest my/lake-root-and-command ()
+  "Lake runs at the project root, from any subdirectory, never in .lake/."
+  (let* ((root (file-name-as-directory (make-temp-file "lake-" t)))
+         (sub (expand-file-name "src/Mini/" root))
+         (dep (expand-file-name ".lake/packages/dep/Dep/" root)))
+    (make-directory sub t)
+    (make-directory dep t)
+    (with-temp-file (expand-file-name "lakefile.lean" root) (insert "import Lake"))
+    (with-temp-file (expand-file-name ".lake/packages/dep/lakefile.toml" root) (insert ""))
+    (should (equal (my/lake-root (expand-file-name "Basic.lean" sub)) root))
+    (should (equal (my/lake-root (expand-file-name "Dep.lean" dep)) root))
+    (should-not (my/lake-root (file-name-as-directory (make-temp-file "hors-lake-" t))))
+    (let (seen)
+      (cl-letf (((symbol-function 'compile)
+                 (lambda (command &rest _) (setq seen (cons command default-directory)))))
+        (with-temp-buffer
+          (setq buffer-file-name (expand-file-name "Basic.lean" sub))
+          (my/lake "test")
+          (should (equal seen (cons "lake test" root)))))
+      (with-temp-buffer
+        (setq default-directory (file-name-as-directory (make-temp-file "hors-lake-" t)))
+        (should-error (my/lake "build") :type 'user-error)))))
+
+(ert-deftest my/lean-setup-buffer ()
+  "Lean buffers get 100-column lines and \"lake build\" as compile command."
+  (with-temp-buffer
+    (my/lean-setup)
+    (should (= fill-column 100))
+    (should (equal compile-command "lake build"))))
+
+(ert-deftest my/eglot-format-on-save-guarded ()
+  "Format on save only when the server can; a failure never blocks the save.
+Regression: Lean's server cannot format, `eglot-format-buffer' signalled
+\"Server can't format\", and C-x C-s failed in every .lean file."
+  (let (calls capable fails
+        ;; ERT l'active ; en usage normal, with-demoted-errors capture l'erreur
+        (debug-on-error nil))
+    (cl-letf (((symbol-function 'eglot-server-capable) (lambda (&rest _) capable))
+              ((symbol-function 'eglot-format-buffer)
+               (lambda () (push t calls) (when fails (error "Server can't format!")))))
+      (with-temp-buffer
+        (setq-local eglot--managed-mode t)
+        (let ((this-command 'save-buffer))
+          (setq capable nil)
+          (my/eglot-format-on-save)
+          (should-not calls)                       ; serveur sans formatage
+          (setq capable t)
+          (my/eglot-format-on-save)
+          (should (= (length calls) 1))            ; serveur qui formate
+          (setq fails t)
+          (my/eglot-format-on-save)                ; ne signale rien
+          (should (= (length calls) 2)))
+        ;; Sauvegarde automatique : jamais de formatage
+        (let ((this-command 'auto-save-visited-mode))
+          (my/eglot-format-on-save)
+          (should (= (length calls) 2)))))))
+
+(ert-deftest my/init-eglot-lean-and-servers ()
+  "Lean starts its own Eglot; others only when their server is installed."
+  (let* ((forms (my/test--file-forms "init.el"))
+         (find (lambda (name)
+                 (cl-find-if (lambda (f) (and (eq (car-safe f) 'use-package)
+                                              (eq (cadr f) name)))
+                             forms)))
+         (eglot (funcall find 'eglot))
+         (lean (funcall find 'lean4-mode)))
+    ;; Pas de :hook sur lean4-mode côté Eglot (lean4-mode appelle eglot-ensure)
+    (should-not (memq :hook eglot))
+    (should-not (string-match-p "lean4-mode" (prin1-to-string (cdr (memq :init eglot)))))
+    (should (string-match-p "executable-find" (prin1-to-string (cdr (memq :init eglot)))))
+    (should (equal (cadr (memq :hook lean)) '(lean4-mode . my/lean-setup)))))
+
+(ert-deftest my/paths-elan-in-exec-path ()
+  "~/.elan/bin joins `exec-path' and PATH, so that \"lake serve\" is found."
+  (let* ((home (file-name-as-directory (make-temp-file "home-" t)))
+         (elan (expand-file-name ".elan/bin" home))
+         (process-environment (cons (concat "HOME=" home) process-environment))
+         (exec-path exec-path))
+    (make-directory elan t)
+    (setenv "PATH" "/usr/bin")
+    (load (expand-file-name "lisp/my-paths.el" my/test--root) nil t t)
+    (should (member elan exec-path))
+    (should (string-prefix-p elan (getenv "PATH")))
+    ;; Idempotent
+    (let ((before (getenv "PATH")))
+      (load (expand-file-name "lisp/my-paths.el" my/test--root) nil t t)
+      (should (equal (getenv "PATH") before)))))
 
 (provide 'my-config-test)
 ;;; my-config-test.el ends here

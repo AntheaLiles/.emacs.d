@@ -12,6 +12,16 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Projets Lean 4 / Lake** (`lisp/my-lean.el`, vérifiés sur le serveur Lean
+  4.34 réel) : `M-x my/lake` (`C-x p L`) lance `lake build|test|lint|…` à la
+  racine du projet, car Lake ne remonte pas l'arborescence ; analyse des
+  messages `error: src/X.lean:8:20:` de Lake dans `*compilation*` (le mot
+  `error`/`warning` précède le chemin : avertissements et erreurs sont
+  distingués) ; lignes de 100 colonnes et `compile-command` « lake build »
+  dans les tampons Lean.
+- `~/.elan/bin` ajouté au `PATH` d'Emacs (`lisp/my-paths.el`) : elan ne
+  modifie que le profil du shell, qu'un Emacs lancé hors d'un terminal ne lit
+  pas.
 - **Export Typst** (`C-c C-e T`) : backend dérivé `my-typst`
   (`lisp/my-export-typst.el`, paquet `ox-typst`). Fichier `.typ`, PDF/UA-1,
   brouillon, tampon. Reprend de la chaîne LaTeX la mise en page, le style CSL
@@ -152,6 +162,16 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Corrigé
 
+- **`C-x C-s` dans un fichier Lean** : le formatage à la sauvegarde
+  (`my/eglot-format-on-save`) appelait `eglot-format-buffer`, qui signale
+  « Server can't format » quand le serveur ne formate pas (celui de Lean) et
+  faisait échouer la sauvegarde. Il vérifie désormais la capacité du serveur,
+  et un échec de formatage ne bloque plus jamais la sauvegarde.
+- **Eglot** : `lean4-mode` n'est plus accroché à `my/eglot-ensure-maybe`
+  (le mode appelle lui-même `eglot-ensure`, après avoir repéré la racine du
+  projet Lake : le démarrage était doublé) ; bash, YAML, TypeScript et Perl
+  ne démarrent Eglot que si leur serveur est installé, au lieu d'un
+  avertissement à chaque ouverture de fichier.
 - **Bibliographie vide** : un `#+print_bibliography:` unique placé en fin
   d'article (après des `#+INCLUDE`, donc dans la dernière section) ne listait
   que les références de cette section, c'est-à-dire aucune. Un mot-clé

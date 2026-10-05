@@ -267,13 +267,13 @@
     (add-hook 'completion-at-point-functions #'cape-elisp-block nil t)))
 
 ;;;; DÉVELOPPEMENT
-;; Eglot démarre seulement pour les langages dont le serveur est déclaré
-;; (ci-dessous, ou par lean4-mode), jamais dans un buffer sans fichier ni
-;; dans un buffer d'édition de bloc Org (C-c ').
+;; Eglot démarre seulement pour les langages dont le serveur est installé
+;; (sans quoi chaque ouverture d'un fichier YAML ou shell afficherait un
+;; avertissement), jamais dans un buffer sans fichier ni dans un buffer
+;; d'édition de bloc Org (C-c ').  Lean est à part : lean4-mode démarre
+;; lui-même Eglot (`lake serve'), après avoir repéré la racine du projet Lake.
 (use-package eglot
   :ensure nil
-  :hook ((lean4-mode bash-ts-mode yaml-ts-mode typescript-ts-mode perl-ts-mode)
-         . my/eglot-ensure-maybe)
   :bind (:map eglot-mode-map
               ("C-c l r" . eglot-rename)
               ("C-c l a" . eglot-code-actions)
@@ -296,6 +296,12 @@
     (when (and buffer-file-name
                (not (bound-and-true-p org-src-mode)))
       (eglot-ensure)))
+  (dolist (entry '((bash-ts-mode-hook       . "bash-language-server")
+                   (yaml-ts-mode-hook       . "yaml-language-server")
+                   (typescript-ts-mode-hook . "typescript-language-server")
+                   (perl-ts-mode-hook       . "perlnavigator")))
+    (when (executable-find (cdr entry))
+      (add-hook (car entry) #'my/eglot-ensure-maybe)))
   :config
   (add-to-list 'eglot-server-programs
                '(typescript-ts-mode . ("typescript-language-server" "--stdio")))
@@ -311,7 +317,12 @@
 ;; racine du projet Lake (Mathlib compris), avec détection du projet.
 (use-package lean4-mode
   :ensure (:host github :repo "bustercopley/lean4-mode" :files ("*.el" "data"))
-  :mode "\\.lean\\'")
+  :mode "\\.lean\\'"
+  :hook (lean4-mode . my/lean-setup)
+  :init
+  ;; lisp/my-lean.el : lignes de 100 colonnes, `lake build', erreurs de Lake.
+  (autoload 'my/lean-setup "my-lean" "Set up a Lean 4 buffer." nil)
+  (autoload 'my/lake "my-lean" "Run a Lake command at the project root." t))
 
 ;; lean4-mode dépend de markdown-mode, dont les autoloads réclament les
 ;; fichiers .md : on garde le mode natif tree-sitter (Emacs 31).
@@ -357,6 +368,8 @@
 (use-package project
   :ensure nil
   :bind-keymap ("C-c p" . project-prefix-map)
+  :bind (:map project-prefix-map
+              ("L" . my/lake))          ; lake build|test|lint… à la racine
   :custom
   (project-switch-commands
    '((project-find-file "Find file" ?f)

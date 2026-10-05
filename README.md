@@ -54,6 +54,7 @@ réorganisée sans adapter ces chemins.
 │   ├── my-folding.el        Repliement façon Org dans tous les modes
 │   ├── my-formatting.el     Nettoyage / formatage à la sauvegarde manuelle
 │   ├── my-babel.el          Langages Babel (session et export asynchrone)
+│   ├── my-lean.el           Lean 4 / Lake : lignes de 100 colonnes, `my/lake`, erreurs de Lake
 │   ├── my-export-config.el  Backend d'export « pdfua » (Org → PDF/UA, CSL)
 │   ├── my-export-async.el   Init du processus d'export asynchrone
 │   ├── my-export-typst.el   Backend d'export Typst « my-typst » (C-c C-e T)
@@ -129,6 +130,7 @@ Le processus d'**export asynchrone** d'Org ne lit pas `init.el` : il charge
 | `my-appearance` | Thème modus, mode line native, police JetBrains Mono Nerd, numéros de ligne, `hl-line`, titres Org. | `<f5>` : clair / sombre. |
 | `my-folding` | Repliement natif d'Emacs 31 : `TAB` sur un titre, `S-TAB` global, blocs par `C-c z b` et indicateurs en frange. | `TAB` **indente** hors des titres. Org est exclu. |
 | `my-formatting` | Supprime les blancs finaux et formate via Eglot **uniquement** lors d'un `C-x C-s`. | Ignore les sauvegardes automatiques. |
+| `my-lean` | Complète `lean4-mode` pour les projets Lake : `M-x my/lake` (`C-x p L`) lance `lake build`, `test`, `lint`… **à la racine** (Lake ne remonte pas l'arborescence), analyse ses messages `error: fichier:ligne:col:`, lignes de 100 colonnes. | `~/.elan/bin` est ajouté au `PATH` ; `C-x p c` compile aussi à la racine. |
 | `my-babel` | Langages Babel (Emacs Lisp, Python, R, shell, calc, Lua), partagés avec l'export asynchrone. | — |
 | `my-export-*` | Backend `pdfua` : Org → LuaLaTeX → PDF/UA (latexmk, `engrave-faces`, CSL) et affichage du PDF ; backend `my-typst` : Org → Typst → PDF/UA-1. | Menus `C-c C-e u` et `C-c C-e T`. |
 | `my-citar-noter` | Ouvre le PDF d'une référence et lance org-noter. | `C-c n P`. |
