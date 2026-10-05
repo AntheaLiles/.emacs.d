@@ -23,9 +23,27 @@
 ;; Pour compiler sans `my/lake', utiliser C-x p c (project-compile), qui
 ;; s'exécute à la racine du projet, et non M-x compile depuis un sous-dossier.
 
+;; Compatibilité avec jsonrpc d'Emacs 31 (1.0.28 et plus) : la variante Eglot de
+;; lean4-mode (dernier commit : février 2026) appelle `jsonrpc--sync-request-alist',
+;; fonction interne supprimée.  Sans elle, chaque réception de diagnostics
+;; lève une erreur dans un timer : `flymake-start' n'est jamais appelé et
+;; aucune erreur Lean ne s'affiche.  Le remplaçant de jsonrpc est la liste
+;; `-scontrol', dont les clés (:local ID) désignent les requêtes synchrones
+;; en cours.  À retirer quand lean4-mode aura suivi.
+
 ;;; Code:
 
 (require 'compile)
+(require 'cl-lib)
+
+(declare-function jsonrpc--scontrol "jsonrpc" (server))
+
+(with-eval-after-load 'jsonrpc
+  (unless (fboundp 'jsonrpc--sync-request-alist)
+    (defun jsonrpc--sync-request-alist (server)
+      "Return SERVER's outstanding synchronous requests (compat for lean4-mode)."
+      (cl-remove-if-not (lambda (entry) (eq (car-safe (car entry)) :local))
+                        (jsonrpc--scontrol server)))))
 
 (defconst my/lean-fill-column 100
   "Maximum line length of k7pl's Lean files (also Mathlib's).")

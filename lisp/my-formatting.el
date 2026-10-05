@@ -33,9 +33,10 @@ Skips cleanup during `auto-save-visited-mode' automatic saves."
 ;; Sauvegarde manuelle uniquement
 (defun my/eglot-format-on-save ()
   "Format buffer via Eglot on manual save, if Eglot is active.
-Only when the server can format (Lean's cannot: `eglot-format-buffer' would
-signal an error and abort the save), and a formatting failure never blocks
-the save."
+Only when the server can format (Lean's cannot: `eglot-format-buffer' signals
+an error, which Emacs reports at every save and which skips the remaining
+`before-save-hook' functions), and a formatting failure never disturbs the
+save."
   (when (and (eq this-command 'save-buffer)
              (bound-and-true-p eglot--managed-mode)
              (eglot-server-capable :documentFormattingProvider))

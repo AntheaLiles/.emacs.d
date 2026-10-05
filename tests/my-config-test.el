@@ -39,7 +39,8 @@
   (require 'my-folding)
   (require 'my-deps)
   (require 'my-formatting)
-  (require 'my-lean))
+  (require 'my-lean)
+  (require 'my-performance))
 
 ;;;; Déplacement de lignes (remplace move-text)
 
@@ -364,9 +365,10 @@ Compiling it would run its `require's (Org, ox-latex…) in the session."
     (should (equal compile-command "lake build"))))
 
 (ert-deftest my/eglot-format-on-save-guarded ()
-  "Format on save only when the server can; a failure never blocks the save.
-Regression: Lean's server cannot format, `eglot-format-buffer' signalled
-\"Server can't format\", and C-x C-s failed in every .lean file."
+  "Format on save only when the server can; a failure never disturbs the save.
+Regression: Lean's server cannot format, so `eglot-format-buffer' signalled an
+error at every C-x C-s in a .lean file (\"Before-save hook error\"), and the
+`before-save-hook' functions after it were skipped."
   (let (calls capable fails
         ;; ERT l'active ; en usage normal, with-demoted-errors capture l'erreur
         (debug-on-error nil))
@@ -420,6 +422,10 @@ Regression: Lean's server cannot format, `eglot-format-buffer' signalled
     (let ((before (getenv "PATH")))
       (load (expand-file-name "lisp/my-paths.el" my/test--root) nil t t)
       (should (equal (getenv "PATH") before)))))
+
+(ert-deftest my/compilation-ansi-filter ()
+  "Compilation output has ANSI colour sequences interpreted."
+  (should (memq 'ansi-color-compilation-filter compilation-filter-hook)))
 
 (provide 'my-config-test)
 ;;; my-config-test.el ends here

@@ -163,10 +163,22 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 ### Corrigé
 
 - **`C-x C-s` dans un fichier Lean** : le formatage à la sauvegarde
-  (`my/eglot-format-on-save`) appelait `eglot-format-buffer`, qui signale
-  « Server can't format » quand le serveur ne formate pas (celui de Lean) et
-  faisait échouer la sauvegarde. Il vérifie désormais la capacité du serveur,
-  et un échec de formatage ne bloque plus jamais la sauvegarde.
+  (`my/eglot-format-on-save`) appelait `eglot-format-buffer`, qui signale une
+  erreur quand le serveur ne formate pas (celui de Lean) : Emacs affichait
+  « Before-save hook error » à chaque sauvegarde et sautait les autres
+  fonctions de `before-save-hook` (la sauvegarde aboutissait). Il vérifie
+  désormais la capacité du serveur.
+- **Diagnostics Lean absents sous Emacs 31** : la variante Eglot de `lean4-mode`
+  (dernier commit : février 2026) appelle `jsonrpc--sync-request-alist`,
+  fonction interne supprimée de `jsonrpc` (1.0.29, Emacs 31.1). Chaque
+  réception de diagnostics levait une erreur dans un timer, `flymake-start`
+  n'était jamais appelé et aucune erreur Lean ne s'affichait. Une fonction de
+  compatibilité (`lisp/my-lean.el`) la rétablit à partir de la liste
+  `-scontrol` de `jsonrpc`.
+- **Sortie colorée dans `*compilation*`** : Emacs n'active pas par défaut le
+  filtre ANSI (`ansi-color-compilation-filter`) ; les builds Lake (et ceux de
+  tout outil qui colore) affichaient des séquences d'échappement brutes qui
+  empêchaient d'analyser les messages d'erreur.
 - **Eglot** : `lean4-mode` n'est plus accroché à `my/eglot-ensure-maybe`
   (le mode appelle lui-même `eglot-ensure`, après avoir repéré la racine du
   projet Lake : le démarrage était doublé) ; bash, YAML, TypeScript et Perl
