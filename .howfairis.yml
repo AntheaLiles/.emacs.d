@@ -1,0 +1,7 @@
+# Configuration de howfairis, qui calcule le badge fair-software.eu du README.
+# Licence : voir REUSE.toml (CC0-1.0).
+
+# Le registre est une exemption déclarée, pas une conformité : ce dépôt est
+# une configuration personnelle, pas un paquet distribué par MELPA ou un autre
+# registre reconnu par howfairis.
+skip_registry_checks_reason: "Configuration Emacs personnelle, non destinée à un registre de paquets."
