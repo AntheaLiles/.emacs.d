@@ -13,7 +13,8 @@
 ;;   - toute la personnalisation du thème passe par les options Modus, jamais
 ;;     par `set-face-attribute' sur une face que le thème re-spécifie ;
 ;;   - la mode-line ne calcule rien au redessin : tout est en cache ou natif ;
-;;   - `M-x my/ml-diagnose' établit l'état des lieux du build courant.
+;;   - tests/my-appearance-test.el établit l'état des lieux (API natives,
+;;     palette, fontes, glyphes) ; il remplace l'ancien `my/ml-diagnose'.
 ;;
 ;; Vérifié sur Emacs 31.1.50.
 
@@ -448,50 +449,6 @@ Si un nom est absent de la palette, la face garde son `:inherit' de repli.")
                  (special-mode-hook     . my/ml-setup-special)
                  (dired-mode-hook       . my/ml-setup-dired)))
   (add-hook hook fn))
-
-;;;;; 4.9 Diagnostic -------------------------------------------------------------------
-
-(defun my/ml-diagnose ()
-  "Report mode line API availability, colours, fonts and glyph rendering."
-  (interactive)
-  (require 'flymake nil t)
-  (require 'project nil t)
-  (let* ((origin  (current-buffer))
-         (misc    (buffer-local-value 'mode-line-misc-info origin))
-         (eglot-p (and (boundp 'eglot--managed-mode)
-                       (buffer-local-value 'eglot--managed-mode origin)))
-         (buf (get-buffer-create "*mode-line diagnose*")))
-    (with-current-buffer buf
-      (let ((inhibit-read-only t))
-        (erase-buffer)
-        (insert (format "Emacs %s — origine : %s (%s)\n\n== Variables ==\n"
-                        emacs-version (buffer-name origin)
-                        (buffer-local-value 'major-mode origin)))
-        (dolist (s '(mode-line-format-right-align mode-line-right-align-edge
-                     mode-line-collapse-minor-modes mode-line-modes-delimiters
-                     mode-line-position-column-line-format
-                     project-mode-line flymake-mode-line-counters
-                     modus-themes-headings))
-          (insert (format "  %-40s %s\n" s (if (boundp s) "OK" "ABSENTE"))))
-        (insert (format "\n== Eglot ==\n  chargé : %s | gère ce buffer : %s\n"
-                        (if (featurep 'eglot) "oui" "non")
-                        (if eglot-p "oui" "non")))
-        (insert (format "  mode-line-misc-info (local) : %S\n" misc))
-        (insert "\n== Fontes ==\n")
-        (dolist (f '(default fixed-pitch variable-pitch))
-          (insert (format "  %-16s %s\n" f (face-attribute f :family nil t))))
-        (insert "\n== Couleurs résolues ==\n")
-        (dolist (f '(my/ml-dim my/ml-ok my/ml-warn my/ml-err my/ml-accent
-                     mode-line mode-line-inactive))
-          (insert (format "  %-16s fg=%-10s bg=%s\n" f
-                          (face-attribute f :foreground nil t)
-                          (face-attribute f :background nil t))))
-        (insert "\n== Glyphes (à juger DANS ce buffer, pas dans un copier-coller) ==\n")
-        (pcase-dolist (`(,name . ,glyph) my/ml-icons)
-          (insert (format "  %-10s [%s]  U+%04X\n" name glyph (aref glyph 0))))
-        (goto-char (point-min))))
-    (display-buffer buf)))
-
 
 ;;;; 5. NUMÉROS DE LIGNE
 ;; prog-mode : relatifs | org/markdown/LaTeX : absolus | autres : aucun

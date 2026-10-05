@@ -10,6 +10,7 @@ Depuis la racine du dépôt, exécute dans l'ordre et résume les résultats :
 3. `emacs -Q --batch --eval '(setq my/perf-root (make-temp-file "perf-" t))' -l perf/perf-start.el -l perf/perf-self-test.el -f ert-run-tests-batch-and-exit`
 4. `emacs -Q --batch -L lisp -l tests/my-export-config-test.el -f ert-run-tests-batch-and-exit`
 5. `emacs -Q --batch -L lisp -l tests/my-config-test.el -f ert-run-tests-batch-and-exit`
+   puis `… -l tests/my-appearance-test.el …` (apparence)
 6. Si le préambule LaTeX, l'export ou le style CSL ont changé :
    `tests/regression/run.sh` (compilation LuaLaTeX réelle).
 
