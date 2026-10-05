@@ -427,5 +427,32 @@ error at every C-x C-s in a .lean file (\"Before-save hook error\"), and the
   "Compilation output has ANSI colour sequences interpreted."
   (should (memq 'ansi-color-compilation-filter compilation-filter-hook)))
 
+(ert-deftest my/trusted-content-first-party-only ()
+  "Own Lisp directories are trusted; downloaded code under elpaca/ is not."
+  (skip-unless (boundp 'trusted-content))
+  (let* ((root (file-name-as-directory (make-temp-file "trust-" t)))
+         (user-emacs-directory root)
+         (trusted-content nil))
+    (unwind-protect
+        (progn
+          (dolist (f '("lisp/a.el" "elpaca/repos/x/x.el"))
+            (make-directory (file-name-directory (expand-file-name f root)) t)
+            (write-region ";;; x" nil (expand-file-name f root)))
+          (my/trusted-content-setup)
+          (my/trusted-content-setup)    ; idempotent
+          (should (= (length trusted-content)
+                     (length (delete-dups (copy-sequence trusted-content)))))
+          ;; Tampon factice : visiter le fichier lancerait flyspell, etc.
+          (with-temp-buffer
+            (setq buffer-file-truename
+                  (file-truename (expand-file-name "lisp/a.el" root)))
+            (should (trusted-content-p)))
+          (with-temp-buffer
+            (setq buffer-file-truename
+                  (file-truename (expand-file-name "elpaca/repos/x/x.el" root)))
+            (should-not (trusted-content-p)))
+          (should-not (memq :all trusted-content)))
+      (delete-directory root t))))
+
 (provide 'my-config-test)
 ;;; my-config-test.el ends here

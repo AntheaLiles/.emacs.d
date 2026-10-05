@@ -12,6 +12,10 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Ajouté
 
+- **Confiance Emacs 30+** (`lisp/my-editing.el`) : `trusted-content` déclare
+  fiables `init.el`, `early-init.el`, `lisp/`, `tests/`, `scripts/` et `perf/`,
+  ce qui rétablit le linting Flymake de la configuration (CVE-2024-53920).
+  `elpaca/` (code téléchargé) et `:all` restent exclus.
 - **Projets Lean 4 / Lake** (`lisp/my-lean.el`, vérifiés sur le serveur Lean
   4.34 réel) : `M-x my/lake` (`C-x p L`) lance `lake build|test|lint|…` à la
   racine du projet, car Lake ne remonte pas l'arborescence ; analyse des

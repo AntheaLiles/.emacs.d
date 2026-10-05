@@ -198,5 +198,26 @@ A negative N moves them up."
   (keymap-unset flyspell-mode-map "C-;" t)
   (keymap-set flyspell-mode-map "C-M-;" #'flyspell-auto-correct-previous-word))
 
+;;;; CONFIANCE (trusted-content)
+;; Depuis Emacs 30 (CVE-2024-53920), Flymake n'exécute plus le code Elisp d'un
+;; fichier non fiable : sans réglage, le linting est désactivé dans la
+;; configuration elle-même.  On ne déclare fiable que le code écrit ici, jamais
+;; `user-emacs-directory' entier (il contient elpaca/, du code téléchargé) et
+;; jamais `:all'.  La barre oblique finale désigne un répertoire.
+
+(defvar trusted-content)                 ; Emacs 30+ ; absente avant
+
+(defun my/trusted-content-setup ()
+  "Add this configuration's own Lisp files to `trusted-content'.
+Directories lisp/, tests/, scripts/ and perf/ plus init.el and early-init.el
+are added; elpaca/ and any other downloaded code are not."
+  (dolist (entry '("init.el" "early-init.el" "lisp/" "tests/" "scripts/" "perf/"))
+    (add-to-list 'trusted-content
+                 (abbreviate-file-name
+                  (expand-file-name entry user-emacs-directory)))))
+
+(when (boundp 'trusted-content)
+  (my/trusted-content-setup))
+
 (provide 'my-editing)
 ;;; my-editing.el ends here
