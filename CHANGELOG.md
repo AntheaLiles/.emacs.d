@@ -76,6 +76,8 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Modifié
 
+- `.gitignore` : les fichiers `*.eld` (données Lisp écrites par Emacs et ses
+  paquets) ne sont plus suivis.
 - **Rupture** — l'export PDF/UA passe par `C-c C-e u` et la classe par défaut
   s'appelle `article-ua` : `#+LATEX_CLASS: article` redevient la classe
   standard de LaTeX.

@@ -64,6 +64,9 @@
 /org-persist/
 /calc.el
 /games/
+# Données Lisp (.eld) écrites par Emacs et ses paquets : états et caches
+# régénérés, jamais écrits à la main.
+*.eld
 
 # Paramètres de Custom : spécifiques à chaque machine.
 # init.el le charge seulement s'il existe (voir la section DÉMARRAGE).
