@@ -19,6 +19,7 @@
 
 ;;; Code:
 
+(declare-function set-fontset-font "fontset" (name target font-spec &optional frame add))
 (declare-function vc-root-dir "vc-hooks" ())
 (declare-function vc-file-getprop "vc-hooks" (file property))
 (declare-function project-current "project" (&optional maybe-prompt directory))
