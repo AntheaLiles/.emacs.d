@@ -18,6 +18,9 @@ paquet, **correctif** = correction sans changement de comportement attendu.
   (API natives d'Emacs 31, noms de palette dans les deux thèmes, fontes,
   glyphes, segments, rendu de chaque variante) ; seul le jugement visuel des
   glyphes reste manuel.
+- **`.howfairis.yml`** : configuration de howfairis pour le badge
+  fair-software.eu. Le critère « registre » y est déclaré hors sujet (pas un
+  paquet) ; le critère « checklist » reste non satisfait (4 sur 5).
 - **Icônes ORCID** (`assets/`, marque d'ORCID, Inc., déclarée dans
   `REUSE.toml`) et `\orcidlinkunauth{…}` pour un identifiant non
   authentifié, à côté de `\orcidlink{…}`.
@@ -82,6 +85,11 @@ paquet, **correctif** = correction sans changement de comportement attendu.
 
 ### Modifié
 
+- **Badges du README** limités à CI (workflow `lint.yml`), REUSE
+  (api.reuse.software, au lieu du workflow `reuse.yml`), OpenSSF Scorecard,
+  Software Heritage et fair-software.eu. Les badges « Lint » et
+  « Non-régression » disparaissent (les workflows restent actifs). Le
+  badge DOI est absent : aucun dépôt Zenodo n'existe encore.
 - **Rupture** — l'export PDF/UA passe par `C-c C-e u` et la classe par défaut
   s'appelle `article-ua` : `#+LATEX_CLASS: article` redevient la classe
   standard de LaTeX.
