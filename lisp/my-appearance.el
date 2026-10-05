@@ -87,14 +87,6 @@
 
 ;;;; ORG — BULLETS ET HEADINGS
 (with-eval-after-load 'org
-  ;; Remplacer les tirets de liste par des bullets
-  ;; Peut interférer avec org-indent-mode dans de rares cas.
-  ;; Si glitches visuels sur les listes, désactiver ce bloc.
-  (font-lock-add-keywords 'org-mode
-                          '(("^ +\\([-*]\\)"
-                             (0 (prog1 ()
-                                  (compose-region (match-beginning 1)
-                                                  (match-end 1) "•"))))))
   ;; Tailles proportionnelles pour les niveaux de titre
   (dolist (face-spec '((org-level-1 . 1.30)
                        (org-level-2 . 1.25)
