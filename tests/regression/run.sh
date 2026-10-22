@@ -160,7 +160,7 @@ for cls in article-ua book-ua; do
     bash -c "[ $PASSES -le 3 ] && ! grep -q \"rule 'biber\" '$WORK/out-$cls/latexmk.log'"
   check "aucun caractère manquant dans les polices ($MANQUANTS)" test "$MANQUANTS" = 0
   pdf "numéro de page et total sur chaque page" footer
-  pdf "bibliographie en \\scriptsize (8 pt)" size "Martin," 8
+  pdf "bibliographie en \\scriptsize (8 pt)" size "MARTIN," 8
   pdf "titres de bibliographie imprimés" count "Références" 1
   pdf "titre :title imprimé" count "Sources de la section" 1
   pdf "résumé en première page" page 1 "Ce résumé doit tenir"
