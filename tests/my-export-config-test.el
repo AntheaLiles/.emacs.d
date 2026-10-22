@@ -247,6 +247,30 @@ the last section, which cites nothing), it printed an empty list."
   (should (equal (my/pdfua--bib-heading ":heading bibnumbered") "\\section{\\refname}"))
   (should-error (my/pdfua--bib-heading ":heading inconnu") :type 'user-error))
 
+(ert-deftest my/export-csl-author-and-doi-format ()
+  "Author lists retain given names, collapse at three authors, and prefer DOIs."
+  (let* ((style (with-temp-buffer
+                  (insert-file-contents my/csl-style-file)
+                  (buffer-string)))
+         (author-start (string-match "<macro name=\"author\">" style))
+         (editor-start (string-match "<macro name=\"editor\">" style))
+         (author (substring style author-start editor-start))
+         (access-start (string-match "<macro name=\"access\">" style))
+         (access-end (string-match "<macro name=\"page\">" style))
+         (access (substring style access-start access-end)))
+    (should (string-match-p
+             "name-as-sort-order=\"all\" sort-separator=\", \" delimiter=\"; \" and=\"text\" et-al-min=\"3\" et-al-use-first=\"1\""
+             author))
+    (should (string-match-p
+             "<name-part name=\"family\" text-case=\"uppercase\"/>" author))
+    (should-not (string-match-p "initialize-with=" author))
+    (should (string-match-p "<et-al/>" author))
+    (should-not (string-match-p "font-style=\"italic\"" author))
+    (should (string-match-p
+             "<text variable=\"DOI\" prefix=\" DOI: \"/>" access))
+    (should (< (string-match "<if variable=\"DOI\">" access)
+               (string-match "<else-if type=\"webpage post post-weblog\"" access)))))
+
 (ert-deftest my/export-csl-configuration ()
   "Citations go through the versioned CSL style, from CSL-JSON.
 Without citeproc, the basic processor keeps exports working."
