@@ -263,6 +263,8 @@ the last section, which cites nothing), it printed an empty list."
              author))
     (should (string-match-p
              "<name-part name=\"family\" text-case=\"uppercase\"/>" author))
+    (should (string-match-p
+             "<name-part name=\\"given\\"/>" author))
     (should-not (string-match-p "initialize-with=" author))
     (should (string-match-p "<et-al/>" author))
     (should-not (string-match-p "font-style=\"italic\"" author))
