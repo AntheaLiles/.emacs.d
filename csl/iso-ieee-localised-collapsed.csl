@@ -320,7 +320,7 @@
             <date variable="accessed" form="text"/>
           </group>
         </group>
-      </if>
+      </else-if>
       <else-if variable="URL">
         <!-- Accessed: Mon. DD, YYYY. [Online]. Available: https://URL.com/ -->
         <group delimiter=". " prefix=" " suffix=". ">
