@@ -310,7 +310,7 @@
       <if variable="DOI">
         <text variable="DOI" prefix=" DOI: "/>
       </if>
-      <if type="webpage post post-weblog" match="any">
+      <else-if type="webpage post post-weblog" match="any">
         <!-- IEEE 2021+ : URL (accessed Mon. DD, YYYY). -->
         <group delimiter=" " prefix=" " suffix=".">
           <text variable="URL"/>
