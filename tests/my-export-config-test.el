@@ -271,7 +271,9 @@ the last section, which cites nothing), it printed an empty list."
     (should (string-match-p
              "<text variable=\"DOI\" prefix=\" DOI: \"/>" access))
     (should (< (string-match "<if variable=\"DOI\">" access)
-               (string-match "<else-if type=\"webpage post post-weblog\"" access)))))
+               (string-match "<else-if type=\"webpage post post-weblog\"" access)))
+    (should (string-match
+             "</else-if>\n      <else-if variable=\"URL\">" access)))
 
 (ert-deftest my/export-csl-configuration ()
   "Citations go through the versioned CSL style, from CSL-JSON.
