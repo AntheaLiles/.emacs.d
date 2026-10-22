@@ -100,12 +100,18 @@ export_doc() { # export_doc CLASSE FORME-LISP
   local dir=$WORK/out-$cls
   rm -rf "$dir"; cp -r "$WORK/doc" "$dir"
   [ "$cls" = book-ua ] && sed -i '1i #+LATEX_CLASS: book-ua' "$dir/essai.org"
-  ( cd "$dir" && HOME=$WORK/home PATH=$HERE/stub-bin:$PATH emacs -Q --batch \
+  if ! ( cd "$dir" && HOME=$WORK/home PATH=$HERE/stub-bin:$PATH emacs -Q --batch \
       --eval "(setq user-emacs-directory \"$ROOT/\")" "${LOADPATH[@]}" \
       -l "$ROOT/lisp/my-export-async.el" \
       --eval "(progn (setq org-confirm-babel-evaluate nil)
                      (find-file \"essai.org\")
-                     $form)" > export.log 2>&1 )
+                     $form)" > export.log 2>&1 ); then
+    echo "  (export process failed; diagnostic log follows)"
+    cat "$dir/export.log"
+  elif [ ! -s "$dir/essai.tex" ]; then
+    echo "  (export produced no essai.tex; diagnostic log follows)"
+    cat "$dir/export.log"
+  fi
 }
 
 compile_doc() { # compile_doc CLASSE → variables PASSES, ERREURS, PAGES
